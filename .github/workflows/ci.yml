@@ -165,12 +165,25 @@ jobs:
             echo "::error::micro-trade was not checked out; the route citations were never verified"
             exit 1
           }
+          # ── The line is READ out of the test, never written down here ──────────────────────────
+          #
+          # Hardcoding `334` in this file makes it a THIRD copy of a citation that already lives in
+          # two places, and the copy is the one that goes stale. The day `/v1/strategies` moves and
+          # somebody correctly updates the table, a hardcoded grep fails with "the route
+          # cross-check did not run" — which is false, and sends the reader to the wrong place.
+          # This estate's recurring defect is a confident wrong diagnosis; a check that produces one
+          # when it is the check that is out of date has become the thing it was written to catch.
+          cited=$(grep -oE "path: '/v1/strategies', line: [0-9]+" test/trade.test.ts | grep -oE '[0-9]+$')
+          [ -n "${cited:-}" ] || {
+            echo "::error::no citation for GET /v1/strategies in test/trade.test.ts; the surface table has changed shape"
+            exit 1
+          }
           out=$(node --import tsx --test test/trade.test.ts 2>&1 || true)
           if printf '%s\n' "$out" | grep -q 'SKIPPED: no micro-trade checkout'; then
             echo "::error::the route cross-check skipped itself while micro-trade was present"
             exit 1
           fi
-          printf '%s\n' "$out" | grep -q 'is registered at trade/src/server.ts:334' || {
+          printf '%s\n' "$out" | grep -q "is registered at trade/src/server.ts:${cited}" || {
             echo "::error::the route cross-check did not run against trade/src/server.ts"
             exit 1
           }
@@ -189,14 +202,32 @@ jobs:
         run: |
           set -euo pipefail
           cp test/trade.test.ts "$RUNNER_TEMP/trade.test.ts.orig"
-          sed -i "s|path: '/v1/strategies', line: 334|path: '/v1/strategies', line: 335|" test/trade.test.ts
-          if node --import tsx --test test/trade.test.ts >/dev/null 2>&1; then
-            echo "::error::the cross-check passed a citation off by one line — it is not reading the service"
-            cp "$RUNNER_TEMP/trade.test.ts.orig" test/trade.test.ts
+          restore() { cp "$RUNNER_TEMP/trade.test.ts.orig" test/trade.test.ts; }
+          trap restore EXIT
+
+          # Read the cited line and bend THAT, rather than naming a number here. A `sed` that
+          # names a line the file no longer carries is a silent no-op: the suite then passes
+          # UNCHANGED and this step reports "the cross-check passed a citation off by one line",
+          # accusing a correct test of being fake. Deriving the number makes the mutation real, and
+          # the assertion below makes "the mutation happened" a checked fact rather than an
+          # assumption.
+          cited=$(grep -oE "path: '/v1/strategies', line: [0-9]+" test/trade.test.ts | grep -oE '[0-9]+$')
+          [ -n "${cited:-}" ] || {
+            echo "::error::no citation for GET /v1/strategies in test/trade.test.ts"
+            exit 1
+          }
+          bent=$((cited + 1))
+          sed -i "s|path: '/v1/strategies', line: ${cited}|path: '/v1/strategies', line: ${bent}|" test/trade.test.ts
+          if cmp -s test/trade.test.ts "$RUNNER_TEMP/trade.test.ts.orig"; then
+            echo "::error::the mutation changed nothing, so this step proves nothing"
             exit 1
           fi
-          cp "$RUNNER_TEMP/trade.test.ts.orig" test/trade.test.ts
-          echo "ok: a citation off by one line turns the suite red, so a pass is evidence"
+
+          if node --import tsx --test test/trade.test.ts >/dev/null 2>&1; then
+            echo "::error::the cross-check passed with GET /v1/strategies cited at ${bent} instead of ${cited} — it is not reading the service"
+            exit 1
+          fi
+          echo "ok: moving one citation from ${cited} to ${bent} turns the suite red, so a pass is evidence"
 
       # ── The design-system cross-check must also have RUN ──────────────────────────────────────
       #
