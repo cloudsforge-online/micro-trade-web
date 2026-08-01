@@ -824,3 +824,61 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* --- The equity curve ------------------------------------------------ *
+ * Two lines and a legend. No gridlines: the question this answers is
+ * "when did it fall", not "by exactly how much" — the metrics table above
+ * carries the numbers, and a grid drawn over a decimated curve implies a
+ * precision the decimation has already spent.
+ * --------------------------------------------------------------------- */
+.tw-chart {
+  margin: var(--cf-space-xl) 0;
+}
+
+.tw-chart__svg {
+  width: 100%;
+  height: 220px;
+  border: 1px solid var(--cf-line);
+  border-radius: var(--cf-radius);
+  background: var(--cf-bg-raised);
+}
+
+.tw-chart__equity {
+  stroke: var(--cf-accent);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.tw-chart__hold {
+  stroke: var(--cf-fg-dim);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.tw-chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cf-space-lg);
+  align-items: baseline;
+  margin-top: var(--cf-space-sm);
+  font-size: var(--cf-text-sm);
+  color: var(--cf-fg-dim);
+}
+
+.tw-chart__key::before {
+  content: '';
+  display: inline-block;
+  width: 14px;
+  height: 2px;
+  margin-right: var(--cf-space-2xs);
+  vertical-align: middle;
+}
+
+.tw-chart__key--equity::before {
+  background: var(--cf-accent);
+}
+
+.tw-chart__key--hold::before {
+  background: var(--cf-fg-dim);
+}

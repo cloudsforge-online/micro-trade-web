@@ -1,8 +1,8 @@
 /**
  * Create a bot.
  *
- * `POST /v1/bots` — `trade/src/server.ts:526`. It creates a `draft`: nothing is reserved and
- * nothing trades until `start`. **201 fresh, 200 on a replay** (`trade/src/server.ts:575`).
+ * `POST /v1/bots` — `trade/src/server.ts:591`. It creates a `draft`: nothing is reserved and
+ * nothing trades until `start`. **201 fresh, 200 on a replay** (`trade/src/server.ts:640`).
  *
  * ── The two things this form has to say out loud ──────────────────────────────────────────────
  *
@@ -16,11 +16,12 @@
  * **2. Live may be switched off underneath them.** `TRADE_LIVE_ENABLED` defaults to **false**
  * (`trade/src/env.ts:181`), it is read per tick rather than at boot (`trade/src/env.ts:11-16`), and
  * `startBot` refuses a live bot outright while it is off (`trade/src/bots.ts:562-564`). This form
- * cannot know the deployment's setting — no route exposes it — so it says that plainly instead of
- * guessing. Reported to micro-trade: a read-only capability route would let a client stop offering
- * a mode that will 409.
+ * used to be unable to know the deployment's setting, because no route exposed it, and said so
+ * rather than guessing. `GET /v1/capabilities` (`trade/src/server.ts:361`) now reports it, so the
+ * form asks before the customer commits and renders the service's OWN refusal sentence — not a
+ * paraphrase, so the warning and the eventual failure cannot say different things.
  *
- * The performance fee field defaults to the service's own 1500 bps (`trade/src/server.ts:543`) and
+ * The performance fee field defaults to the service's own 1500 bps (`trade/src/server.ts:608`) and
  * is sent explicitly, so the number the customer agreed to is the number on the row.
  */
 import { useMemo, useState, type FormEvent } from 'react'
@@ -30,6 +31,7 @@ import { useIdempotentMutation } from '../lib/mutation.ts'
 import { useResource } from '../lib/resource.ts'
 import {
   createBot,
+  getCapabilities,
   getSeries,
   getStrategies,
   type BotMode,
@@ -37,7 +39,7 @@ import {
   type StrategyId,
 } from '../lib/trade.ts'
 
-/** `trade/src/server.ts:543`. Restated here because the form sends it explicitly. */
+/** `trade/src/server.ts:608`. Restated here because the form sends it explicitly. */
 const DEFAULT_FEE_BPS = 1500
 
 export function NewBotPage() {
@@ -52,6 +54,13 @@ export function NewBotPage() {
     (signal) => getSeries(signal),
     (data) => data.series.length,
     'The available price series could not be loaded.',
+  )
+  // Unauthenticated, and asked BEFORE the form is submitted. This used to be unknowable — the note
+  // below said so — and a customer learned that live was off by pressing start.
+  const capabilities = useResource(
+    (signal) => getCapabilities(signal),
+    () => 1,
+    'Whether this deployment allows live trading could not be checked.',
   )
 
   const strategies = catalogue.data?.strategies ?? []
@@ -165,12 +174,20 @@ export function NewBotPage() {
               bot moves. Gains above the high-water mark are charged the performance fee below.
             </span>
           </label>
-          {mode === 'live' && (
+          {mode === 'live' && capabilities.data?.capabilities.liveTrading.enabled === false && (
+            <p className="tw-field__note tw-field__note--warn" role="alert">
+              <strong>Live trading is switched off on this deployment.</strong>{' '}
+              {/* The engine's own sentence, verbatim, so this and the 409 cannot disagree. */}
+              {capabilities.data.capabilities.liveTrading.refusal ??
+                'Starting a live bot will be refused.'}{' '}
+              You can still create this bot, but it will not trade until the switch is on.
+            </p>
+          )}
+          {mode === 'live' && capabilities.data === null && (
             <p className="tw-field__note tw-field__note--warn" role="status">
-              <strong>Live trading may be switched off on this deployment.</strong> The kill switch
-              defaults to off and is read on every tick, and starting a live bot while it is off is
-              refused with a 409 that says so. No route reports the setting, so this form cannot
-              check it before you commit — you will find out when you press start.
+              <strong>Whether live trading is switched on could not be checked.</strong> The kill
+              switch is read on every tick, and starting a live bot while it is off is refused with
+              a 409. This says "unknown" rather than "fine" — an unchecked switch is not an open one.
             </p>
           )}
         </fieldset>

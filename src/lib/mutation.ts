@@ -8,13 +8,13 @@
  * ── Why `busy` is not merely cosmetic here ────────────────────────────────────────────────────
  *
  * Two of this app's three writes commit something that cannot be taken back. `POST /v1/bots`
- * creates a bot with an allocation (`trade/src/server.ts:526`), and `POST /v1/bots/:id/actions`
+ * creates a bot with an allocation (`trade/src/server.ts:591`), and `POST /v1/bots/:id/actions`
  * with `action: "start"` **reserves that allocation at the ledger** before the status changes
  * (`trade/src/bots.ts:566-579`) — a real hold on a real balance. `POST /v1/backtests` spends no
- * money but does queue a job (`trade/src/server.ts:457-462`).
+ * money but does queue a job (`trade/src/server.ts:522-527`).
  *
  * Unlike mint, trade does not rely on a state machine to make a double click survivable: it
- * requires an `Idempotency-Key` on all three (`trade/src/server.ts:775-783`). That header is what
+ * requires an `Idempotency-Key` on all three (`trade/src/server.ts:840-848`). That header is what
  * makes a RETRY safe. It is not what makes a double click safe, because the second click of a
  * double click is a new intent as far as this bundle is concerned — so the hook still refuses to
  * start a second run while one is in flight, and the buttons read the same flag so they are

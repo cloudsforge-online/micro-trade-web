@@ -11,7 +11,7 @@
  *
  * **1. Authentication has two spellings on trade, and only one of them is a literal
  * `authenticate()` call.** Four of the routes this app uses go through `ownedBot`
- * (`trade/src/server.ts:736-747`), which authenticates at `:741` and then 404s somebody else's
+ * (`trade/src/server.ts:801-812`), which authenticates at `:741` and then 404s somebody else's
  * bot. A check that grepped each handler body for `authenticate(` — which is exactly what
  * micro-mint-web's does, correctly, for a service where every handler calls it directly — would
  * declare all four UNAUTHENTICATED here, and a client built on that answer would send them no
@@ -70,17 +70,19 @@ const SURFACE: ReadonlyArray<{
   auth: AuthKind
   idempotent: boolean
 }> = [
-  { method: 'GET', path: '/v1/strategies', line: 334, auth: 'none', idempotent: false },
-  { method: 'GET', path: '/v1/series', line: 336, auth: 'direct', idempotent: false },
-  { method: 'GET', path: '/v1/backtests', line: 382, auth: 'direct', idempotent: false },
-  { method: 'GET', path: '/v1/backtests/:id', line: 390, auth: 'direct', idempotent: false },
-  { method: 'POST', path: '/v1/backtests', line: 399, auth: 'direct', idempotent: true },
-  { method: 'GET', path: '/v1/bots', line: 475, auth: 'direct', idempotent: false },
-  { method: 'GET', path: '/v1/bots/:id', line: 483, auth: 'ownedBot', idempotent: false },
-  { method: 'GET', path: '/v1/bots/:id/fills', line: 488, auth: 'ownedBot', idempotent: false },
-  { method: 'GET', path: '/v1/bots/:id/settlements', line: 506, auth: 'ownedBot', idempotent: false },
-  { method: 'POST', path: '/v1/bots', line: 526, auth: 'direct', idempotent: true },
-  { method: 'POST', path: '/v1/bots/:id/actions', line: 586, auth: 'ownedBot', idempotent: true },
+  { method: 'GET', path: '/v1/strategies', line: 342, auth: 'none', idempotent: false },
+  { method: 'GET', path: '/v1/capabilities', line: 361, auth: 'none', idempotent: false },
+  { method: 'GET', path: '/v1/series', line: 373, auth: 'direct', idempotent: false },
+  { method: 'GET', path: '/v1/backtests', line: 419, auth: 'direct', idempotent: false },
+  { method: 'GET', path: '/v1/backtests/:id', line: 427, auth: 'direct', idempotent: false },
+  { method: 'GET', path: '/v1/backtests/:id/result', line: 447, auth: 'direct', idempotent: false },
+  { method: 'POST', path: '/v1/backtests', line: 464, auth: 'direct', idempotent: true },
+  { method: 'GET', path: '/v1/bots', line: 540, auth: 'direct', idempotent: false },
+  { method: 'GET', path: '/v1/bots/:id', line: 548, auth: 'ownedBot', idempotent: false },
+  { method: 'GET', path: '/v1/bots/:id/fills', line: 553, auth: 'ownedBot', idempotent: false },
+  { method: 'GET', path: '/v1/bots/:id/settlements', line: 571, auth: 'ownedBot', idempotent: false },
+  { method: 'POST', path: '/v1/bots', line: 591, auth: 'direct', idempotent: true },
+  { method: 'POST', path: '/v1/bots/:id/actions', line: 651, auth: 'ownedBot', idempotent: true },
 ]
 
 /**
@@ -91,9 +93,9 @@ const SURFACE: ReadonlyArray<{
  * look, and a route it has decided against should not.
  */
 const DECLINED: ReadonlyArray<{ method: string; path: string; line: number; why: string }> = [
-  { method: 'POST', path: '/v1/series', line: 341, why: 'requireOperator — trade:admin or role:admin' },
-  { method: 'POST', path: '/v1/series/:id/bars', line: 354, why: 'requireOperator — trade:admin or role:admin' },
-  { method: 'POST', path: '/v1/events', line: 655, why: 'HMAC webhook; a browser holds no signing secret' },
+  { method: 'POST', path: '/v1/series', line: 378, why: 'requireOperator — trade:admin or role:admin' },
+  { method: 'POST', path: '/v1/series/:id/bars', line: 391, why: 'requireOperator — trade:admin or role:admin' },
+  { method: 'POST', path: '/v1/events', line: 720, why: 'HMAC webhook; a browser holds no signing secret' },
 ]
 
 const client = readFileSync(here('src/lib/trade.ts'), 'utf8')
@@ -245,9 +247,20 @@ describe('the cited lines are the lines that register the routes', () => {
     )
   })
 
-  it('the one route called without a token really makes no authenticate() call', () => {
-    const body = bodyOf(334)
-    assert.doesNotMatch(body, /authenticate\(/, 'GET /v1/strategies now authenticates')
+  it('every route called without a token really makes no authenticate() call', () => {
+    // The line comes from SURFACE, never from a literal. This check used to say bodyOf(334), and
+    // when trade's table moved, 334 became the /metrics handler — which also makes no
+    // authenticate() call, so the check went on PASSING while grading a completely different
+    // function. A guard that cannot fail is worse than no guard, because it is believed.
+    const open = SURFACE.filter((r) => r.auth === 'none')
+    assert.ok(open.length >= 1, 'the unauthenticated routes have vanished from the surface')
+    for (const route of open) {
+      assert.doesNotMatch(
+        bodyOf(route.line),
+        /authenticate\(/,
+        `${route.method} ${route.path} now authenticates; it is called with auth: false`,
+      )
+    }
   })
 
   it('every mutating route this app calls requires an Idempotency-Key', () => {
@@ -281,7 +294,13 @@ describe('the cited lines are the lines that register the routes', () => {
   })
 
   it('the webhook is a MAC surface rather than a bearer one, which is why it is declined', () => {
-    const body = bodyOf(655)
+    // The line comes from DECLINED, never from a literal repeated here. A magic number in a check
+    // is a second, unversioned copy of a citation: when trade's route table moved, this one still
+    // said 655 and silently graded the WRONG handler — the same defect as a CI step that hardcodes
+    // the line it mutates and then passes against a file it never changed.
+    const webhook = DECLINED.find((r) => r.path === '/v1/events')
+    if (!webhook) throw new Error('the webhook is no longer declined; say why, or call it')
+    const body = bodyOf(webhook.line)
     assert.match(body, /verifyEventSignature\(raw, deps\.eventSigningSecret, presented\)/)
     assert.doesNotMatch(body, /authenticate\(/, 'the webhook now takes a bearer token')
   })

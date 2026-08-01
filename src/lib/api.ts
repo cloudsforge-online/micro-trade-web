@@ -257,7 +257,7 @@ export interface RequestOptions {
    *
    * Every mutating route on `trade` requires one. `idempotencyKeyOf` is called at the top of each
    * of them and throws a `BadRequestError` when the header is missing or outside 8–200 characters
-   * (`trade/src/server.ts:775-783`), so a POST without it is a **400** rather than a duplicate
+   * (`trade/src/server.ts:840-848`), so a POST without it is a **400** rather than a duplicate
    * charge — the opposite of `mint`, which reads no such header anywhere. The header is not
    * optional politeness here: `POST /v1/bots/:id/actions` with `action: "start"` reserves capital
    * at the ledger (`trade/src/bots.ts:567-579`).

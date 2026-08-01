@@ -1,7 +1,7 @@
 /**
  * Your bots.
  *
- * `GET /v1/bots` — `trade/src/server.ts:475`. At most 100, newest first (`:479`), the caller's own.
+ * `GET /v1/bots` — `trade/src/server.ts:540`. At most 100, newest first (`:479`), the caller's own.
  *
  * The equity column is a MARK, not a settlement: it is whatever the last tick computed against
  * whatever price was available then. It is labelled as such rather than presented as a balance.
@@ -31,7 +31,7 @@ export function BotsPage() {
 
       {/*
         The fee, stated where the bots are, not in a settings page nobody opens.
-        `trade/src/server.ts:543` defaults `feeBps` to 1500 on creation, and `trade/src/fees.ts:9-12`
+        `trade/src/server.ts:608` defaults `feeBps` to 1500 on creation, and `trade/src/fees.ts:9-12`
         states the model: "Trade is free until it makes money. Backtests, the strategy catalogue and
         paper trading never cost anything. The only charge is a share of a LIVE bot's gains,
         assessed against a HIGH-WATER MARK."

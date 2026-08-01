@@ -1,7 +1,7 @@
 /**
  * One backtest: the status page a 202 points at, and the report once it completes.
  *
- * `GET /v1/backtests/:id` — `trade/src/server.ts:390`. A malformed id is a 400 and another
+ * `GET /v1/backtests/:id` — `trade/src/server.ts:427`. A malformed id is a 400 and another
  * customer's id is a **404**, the same answer as "no such run", so ids cannot be enumerated.
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
@@ -45,7 +45,8 @@ import {
   signedShards,
 } from '../lib/format.ts'
 import { useResource } from '../lib/resource.ts'
-import { getBacktest, type Backtest, type BacktestMetrics } from '../lib/trade.ts'
+import { getBacktest, getBacktestResult, type Backtest, type BacktestMetrics } from '../lib/trade.ts'
+import { EquityCurve } from '../components/equity.tsx'
 
 export function BacktestPage() {
   const { id = '' } = useParams()
@@ -53,6 +54,16 @@ export function BacktestPage() {
     (signal) => getBacktest(id, signal),
     () => 1,
     'That backtest could not be loaded.',
+    [id],
+  )
+
+  // Fetched separately because the service serves it separately, and for the same reason: an
+  // equity curve is decimated to hundreds of points and a fill list is unbounded, so the summary
+  // must not carry them. A 409 here means the run has not finished — a state, not an error.
+  const result = useResource(
+    (signal) => getBacktestResult(id, signal),
+    () => 1,
+    'The equity curve could not be loaded.',
     [id],
   )
 
@@ -116,6 +127,23 @@ export function BacktestPage() {
           )}
         </Fact>
       </dl>
+
+      {backtest.status === 'complete' && (
+        <>
+          <h2 className="tw-section__title">Equity</h2>
+          {result.state === 'loading' ? (
+            <p className="tw-note">Loading the curve…</p>
+          ) : result.data ? (
+            <EquityCurve points={result.data.equity} />
+          ) : (
+            // The summary loaded and the curve did not. Say which, rather than showing an empty
+            // chart that reads as "this run did nothing".
+            <p className="tw-note" role="status">
+              {result.error?.message ?? 'The curve is not available for this run.'}
+            </p>
+          )}
+        </>
+      )}
 
       {backtest.notes.length > 0 && <Notes notes={backtest.notes} />}
 

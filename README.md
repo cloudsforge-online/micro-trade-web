@@ -5,7 +5,7 @@ queued run is polled on, the bot list, and one bot's fills and fee settlements. 
 served by nginx and nothing else — no server, no session store, no database.
 
 > **Fees and slippage are charged, and this app never hides them.** The service defaults a backtest
-> to 10 basis points of fee and 5 of slippage rather than to zero (`trade/src/server.ts:415-416`),
+> to 10 basis points of fee and 5 of slippage rather than to zero (`trade/src/server.ts:480-481`),
 > and paper trading is charged exactly the same (`trade/src/bots.ts:81-82`) — because the frozen
 > service booked a zero fee in paper mode, so "a paper bot beat the backtest of its own rule every
 > time, which is the single comparison this product exists to let somebody make"
@@ -20,7 +20,7 @@ served by nginx and nothing else — no server, no session store, no database.
 > softer paraphrases across six screens.
 >
 > **This bundle enforces nothing, and none of its refusals are a boundary.** `trade` verifies the
-> bearer on every route that needs one (`authenticate`, `trade/src/server.ts:714-720`), and every
+> bearer on every route that needs one (`authenticate`, `trade/src/server.ts:779-785`), and every
 > owned row is filtered by `user_id` inside the query — `getOwnedBot` (`trade/src/bots.ts:217-223`)
 > — so another customer's bot is a **404**, the same answer as "no such bot", deliberately, so ids
 > cannot be enumerated.
@@ -40,21 +40,21 @@ one citation by a line and requires the suite to go red.
 
 | Method | Path | Authenticates | Idempotency-Key | What it does | Verified at |
 | --- | --- | --- | --- | --- | --- |
-| `GET` | `/v1/strategies` | **no** | — | the ten rules, their parameters and their weaknesses | `trade/src/server.ts:334` |
-| `GET` | `/v1/series` | yes | — | every published price series (estate data, not the caller's) | `trade/src/server.ts:336` |
-| `GET` | `/v1/backtests` | yes | — | the caller's runs, newest first, at most 100 | `trade/src/server.ts:382` |
-| `GET` | `/v1/backtests/:id` | yes | — | one run; **404** for somebody else's | `trade/src/server.ts:390` |
-| `POST` | `/v1/backtests` | yes | **required** | **202 and a status URL. The run has not happened.** | `trade/src/server.ts:399` |
-| `GET` | `/v1/bots` | yes | — | the caller's bots, newest first, at most 100 | `trade/src/server.ts:475` |
-| `GET` | `/v1/bots/:id` | yes, via `ownedBot` | — | one bot | `trade/src/server.ts:483` |
-| `GET` | `/v1/bots/:id/fills` | yes, via `ownedBot` | — | at most 200 fills, newest first | `trade/src/server.ts:488` |
-| `GET` | `/v1/bots/:id/settlements` | yes, via `ownedBot` | — | at most 200 fee settlements | `trade/src/server.ts:506` |
-| `POST` | `/v1/bots` | yes | **required** | creates a `draft`; reserves nothing | `trade/src/server.ts:526` |
-| `POST` | `/v1/bots/:id/actions` | yes, via `ownedBot` | **required** | `start`, `pause`, `stop` | `trade/src/server.ts:586` |
+| `GET` | `/v1/strategies` | **no** | — | the ten rules, their parameters and their weaknesses | `trade/src/server.ts:342` |
+| `GET` | `/v1/series` | yes | — | every published price series (estate data, not the caller's) | `trade/src/server.ts:373` |
+| `GET` | `/v1/backtests` | yes | — | the caller's runs, newest first, at most 100 | `trade/src/server.ts:419` |
+| `GET` | `/v1/backtests/:id` | yes | — | one run; **404** for somebody else's | `trade/src/server.ts:427` |
+| `POST` | `/v1/backtests` | yes | **required** | **202 and a status URL. The run has not happened.** | `trade/src/server.ts:464` |
+| `GET` | `/v1/bots` | yes | — | the caller's bots, newest first, at most 100 | `trade/src/server.ts:540` |
+| `GET` | `/v1/bots/:id` | yes, via `ownedBot` | — | one bot | `trade/src/server.ts:548` |
+| `GET` | `/v1/bots/:id/fills` | yes, via `ownedBot` | — | at most 200 fills, newest first | `trade/src/server.ts:553` |
+| `GET` | `/v1/bots/:id/settlements` | yes, via `ownedBot` | — | at most 200 fee settlements | `trade/src/server.ts:571` |
+| `POST` | `/v1/bots` | yes | **required** | creates a `draft`; reserves nothing | `trade/src/server.ts:591` |
+| `POST` | `/v1/bots/:id/actions` | yes, via `ownedBot` | **required** | `start`, `pause`, `stop` | `trade/src/server.ts:651` |
 
 ### Which routes make no `authenticate()` call
 
-**One of the routes this app calls: `GET /v1/strategies` (`trade/src/server.ts:334`).** The handler
+**One of the routes this app calls: `GET /v1/strategies` (`trade/src/server.ts:342`).** The handler
 is a one-line body with no principal in it, and the comment above it explains why — it is "a product
 surface, the thing a prospective user reads before signing up", and gating it would make the
 marketing page unable to render it. This client sends it with `auth: false`. That is not a nicety:
@@ -62,20 +62,20 @@ the estate has already shipped a client that sent a token to a route which never
 had to reason about a 403 that was never about authorisation.
 
 Two routes this app does **not** call are also unauthenticated in the bearer sense —
-`GET /livez` and `GET /readyz` (`trade/src/server.ts:307`, `:309`) — plus `GET /metrics`
+`GET /livez` and `GET /readyz` (`trade/src/server.ts:315`, `:309`) — plus `GET /metrics`
 (`:317`). They are platform probes, not a browser surface.
 
-`POST /v1/events` (`trade/src/server.ts:655`) makes no `authenticate()` call either, and it is the
+`POST /v1/events` (`trade/src/server.ts:720`) makes no `authenticate()` call either, and it is the
 one that would be most dangerous to misread: the credential is an **HMAC over the raw bytes**, and
 an unsigned caller gets a **403**, not a 401 — "answering 401 would invite a caller to go and find a
-token. The MAC is the credential" (`trade/src/server.ts:659-660`). A browser holds no signing secret,
+token. The MAC is the credential" (`trade/src/server.ts:724-725`). A browser holds no signing secret,
 so this client does not call it.
 
 ### The four routes that authenticate through a helper, which a naive check gets wrong
 
 `GET /v1/bots/:id`, `.../fills`, `.../settlements` and `POST .../actions` contain **no literal
 `await authenticate(ctx, deps)`**. They call `ownedBot(ctx, deps, SCOPE)`, which authenticates at
-`trade/src/server.ts:741` and then answers 404 for a bot that is not the caller's (`:744-745`).
+`trade/src/server.ts:806` and then answers 404 for a bot that is not the caller's (`:744-745`).
 
 micro-mint-web's route cross-check greps each handler body for `authenticate(` — correctly, for a
 service where every handler calls it directly. Run unchanged against trade, that check declares all
@@ -87,7 +87,7 @@ four routes unauthenticated, and a client built on its answer would send them no
 ### Every mutation requires an `Idempotency-Key`
 
 All three POSTs. `idempotencyKeyOf` runs at the top of each and throws a `BadRequestError` when the
-header is missing or outside 8–200 characters (`trade/src/server.ts:775-783`), so a POST without one
+header is missing or outside 8–200 characters (`trade/src/server.ts:840-848`), so a POST without one
 is a **400**. The service's own file header gives the reason (`trade/src/server.ts:15-21`): "Every
 mutating route here either moves money or commits capital, and a caller that cannot tell whether its
 retry landed is a caller that will retry until something does."
@@ -113,7 +113,7 @@ twice*:
 ### The 202 is the most important thing on the list
 
 `POST /v1/backtests` validates, claims the key, writes a `queued` row and enqueues a job **after the
-claim commits** (`trade/src/server.ts:453-464` — a job enqueued inside the transaction would be
+claim commits** (`trade/src/server.ts:518-529` — a job enqueued inside the transaction would be
 visible to a worker before the row it names). It answers 202 with a `location` header and a
 `statusUrl` in the body (`:468-472`). `trade/src/backtests.ts:4-20` argues the case: the frozen
 service ran the backtest inside the POST, and a SIGTERM mid-run left a row marked `queued` that
@@ -179,7 +179,7 @@ like a deploy that did not.
 
 ## The refusals this app renders rather than pre-empts
 
-Three of the service's `409 bot_state` answers (`BotStateError` → `trade/src/server.ts:266-268`):
+Three of the service's `409 bot_state` answers (`BotStateError` → `trade/src/server.ts:274-276`):
 
 | Refusal | Where it is decided | What this app does |
 | --- | --- | --- |

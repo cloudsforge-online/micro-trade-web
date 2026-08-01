@@ -2,14 +2,14 @@
  * Session state for the tree, and the gate in front of the routes that need one.
  *
  * Hiding a route is NOT the security boundary. `trade` verifies the bearer on every route that
- * needs one (`authenticate`, `trade/src/server.ts:714-720`), and every owned resource is filtered
+ * needs one (`authenticate`, `trade/src/server.ts:779-785`), and every owned resource is filtered
  * by `user_id` in the query itself — `getOwnedBot` (`trade/src/bots.ts:217-223`) and
  * `getOwnedBacktest` — so another customer's bot is a **404**, the same answer as "no such bot",
  * so ids cannot be enumerated. This exists so that a signed-out customer is sent to sign in
  * instead of being shown a screen made entirely of 401s.
  *
  * **One route is deliberately outside the gate**, because the service put it outside: `GET
- * /v1/strategies` (`trade/src/server.ts:334`) makes no `authenticate()` call at all. See
+ * /v1/strategies` (`trade/src/server.ts:342`) makes no `authenticate()` call at all. See
  * `src/lib/routes.ts`.
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════

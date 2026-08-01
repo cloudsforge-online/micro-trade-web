@@ -1,17 +1,17 @@
 /**
  * Queue a backtest.
  *
- * `POST /v1/backtests` — `trade/src/server.ts:399`. **202 and a status URL; the run has not
+ * `POST /v1/backtests` — `trade/src/server.ts:464`. **202 and a status URL; the run has not
  * happened.** The handler validates, claims an idempotency key, writes a `queued` row and enqueues
- * the job after the claim commits (`trade/src/server.ts:453-464`). So this screen navigates to the
+ * the job after the claim commits (`trade/src/server.ts:518-529`). So this screen navigates to the
  * status page rather than rendering a result, and the button never says "run" in the past tense.
  *
  * ── Three defaults on this form are the product's argument, not conveniences ──────────────────
  *
- *   * **Fee, 10 bps.** `readBps(body, 'feeBps', 10)` — `trade/src/server.ts:415`.
- *   * **Slippage, 5 bps.** `readBps(body, 'slippageBps', 5)` — `trade/src/server.ts:416`.
+ *   * **Fee, 10 bps.** `readBps(body, 'feeBps', 10)` — `trade/src/server.ts:480`.
+ *   * **Slippage, 5 bps.** `readBps(body, 'slippageBps', 5)` — `trade/src/server.ts:481`.
  *   * **Seed, 0.** `readSeed` defaults to zero rather than randomising, and says why
- *     (`trade/src/server.ts:836-850`): a random default "would make an omitted seed produce a run
+ *     (`trade/src/server.ts:901-915`): a random default "would make an omitted seed produce a run
  *     nobody can reproduce, which is the exact property this service promises not to have".
  *
  * They are shown, editable, and sent explicitly, so the number on the screen is the number the row
@@ -42,7 +42,7 @@ import {
   type StrategyId,
 } from '../lib/trade.ts'
 
-/** `trade/src/server.ts:415-416`. Restated here because the form sends them explicitly. */
+/** `trade/src/server.ts:480-481`. Restated here because the form sends them explicitly. */
 const DEFAULT_FEE_BPS = 10
 const DEFAULT_SLIPPAGE_BPS = 5
 

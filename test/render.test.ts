@@ -10,7 +10,7 @@
  * THE PRODUCT'S TWO CLAIMS, EACH ENFORCED
  *
  * **1. Fees and slippage are charged.** The service defaults a backtest to 10 bps of fee and 5 of
- * slippage rather than to zero (`trade/src/server.ts:415-416`), and paper trading is charged the
+ * slippage rather than to zero (`trade/src/server.ts:480-481`), and paper trading is charged the
  * same (`trade/src/bots.ts:81-82`) — because the frozen version booked a zero fee in paper mode
  * and "a paper bot beat the backtest of its own rule every time, which is the single comparison
  * this product exists to let somebody make" (`trade/src/bots.ts:73-80`). A UI that hid the charge,
@@ -231,13 +231,30 @@ describe('the refusals the service owns are rendered, not pre-empted', () => {
     assert.match(source, /const terminal = bot\.status === 'stopped'/)
   })
 
-  it('the live kill switch is described rather than guessed at', () => {
-    // TRADE_LIVE_ENABLED defaults to false (trade/src/env.ts:181) and no route reports it. A
-    // client that hid the live option on a deployment where live was ON would have removed a
-    // feature nobody could file a bug against.
+  it('the live kill switch is asked about, not guessed at, and unknown is not treated as on', () => {
+    // TRADE_LIVE_ENABLED defaults to false (trade/src/env.ts:181) and is read per tick. This page
+    // USED to say it could not check, because no route reported it; GET /v1/capabilities
+    // (trade/src/server.ts:361) now does, so the check is that it actually asks — and, more
+    // importantly, that it distinguishes "switched off" from "could not tell".
+    //
+    // Hiding the live option entirely is still wrong: on a deployment where live is ON, that would
+    // remove a feature nobody could file a bug against. So the option stays and the warning speaks.
     const source = read('src/pages/new-bot.tsx')
-    assert.match(source, /kill switch/i)
-    assert.match(source, /cannot check it before you commit|you will find out when you press start/i)
+    assert.match(source, /getCapabilities/, 'the form must ask the service, not assume')
+    assert.match(
+      source,
+      /liveTrading\.enabled === false/,
+      'the off case must be tested explicitly, not inferred from a falsy value',
+    )
+    assert.match(
+      source,
+      /liveTrading\.refusal/,
+      "the service's own refusal sentence must be rendered, not a paraphrase that can drift from it",
+    )
+    // An unchecked switch is not an open one. There must be a branch for "could not check" that is
+    // distinct from the branch for "switched off", or a failed capability read reads as permission.
+    assert.match(source, /capabilities\.data === null/, 'unknown must be its own branch')
+    assert.match(source, /could not be checked/i)
   })
 
   it('pause is described as not a flatten, wherever it is offered', () => {

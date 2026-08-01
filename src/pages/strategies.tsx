@@ -1,7 +1,7 @@
 /**
  * The strategy catalogue. The public front page.
  *
- * `GET /v1/strategies` (`trade/src/server.ts:334`) makes no `authenticate()` call, so this renders
+ * `GET /v1/strategies` (`trade/src/server.ts:342`) makes no `authenticate()` call, so this renders
  * for somebody who has not signed in — which is who arrives at a product's front page.
  *
  * ── Every card carries its weakness, at the same weight as its tagline ────────────────────────
@@ -37,7 +37,7 @@ export function StrategiesPage() {
       {/*
         THE PRODUCT'S CENTRAL CLAIM, ON THE FRONT PAGE RATHER THAN IN A FOOTNOTE.
 
-        `trade/src/server.ts:415-416` defaults a backtest to 10 basis points of fee and 5 of
+        `trade/src/server.ts:480-481` defaults a backtest to 10 basis points of fee and 5 of
         slippage — not zero — and paper bots are charged the same (`PAPER_FEE_BPS`,
         `PAPER_SLIPPAGE_BPS`, `trade/src/bots.ts:82-83`). The service explains why at
         `trade/src/bots.ts:73-80`: the frozen version converted at the raw rate with a zero fee, so
