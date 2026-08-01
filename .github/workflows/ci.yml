@@ -188,7 +188,13 @@ jobs:
             exit 1
           }
           # Eleven called routes plus three declined ones, each asserted against its own line.
-          count=$(printf '%s\n' "$out" | grep -c 'is registered at trade/src/server.ts:')
+          #
+          # DEDUPED before counting. node:test names each subtest twice — once as it runs and once
+          # in the summary — so a raw `grep -c` reported "28 cited routes verified" for fourteen
+          # routes. The threshold still passed, so nothing was broken; the LOG LINE was simply
+          # wrong, which is the defect this whole repository is built to avoid. A number nobody can
+          # reconcile is a number somebody eventually reasons from.
+          count=$(printf '%s\n' "$out" | grep -oE 'is registered at trade/src/server\.ts:[0-9]+' | sort -u | wc -l | tr -d ' ')
           [ "$count" -ge 14 ] || {
             echo "::error::only $count route citations were verified; the surface has fourteen"
             exit 1
