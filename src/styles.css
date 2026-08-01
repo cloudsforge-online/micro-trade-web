@@ -1,0 +1,826 @@
+/*
+ * Forge Trade's own styles, on top of @cloudsforge/ui.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * EVERY CUSTOM PROPERTY REFERENCED HERE IS DEFINED IN `ui/packages/ui/src/tokens.css`, AND A TEST
+ * PROVES IT.
+ *
+ * `test/tokens.test.ts` reads the sibling design system, collects every `--cf-*` this file names,
+ * and fails on one that tokens.css does not declare. That is not a style preference. An undefined
+ * custom property makes the whole declaration invalid at computed-value time, so
+ * `border: 1px solid var(--cf-undefined)` does not fall back to a sensible border — it drops the
+ * border entirely, silently, in a file that looks correct.
+ *
+ * The estate has already shipped this. `micro-mint-web/src/styles.css` references TEN properties
+ * that do not exist — `--cf-border`, `--cf-radius-md`, `--cf-space-1` through `--cf-space-5`, and
+ * `--cf-status-good`/`-warn`/`-crit` — across 72 declarations, while every other frontend in the
+ * estate (`admin-web`, `web-template`, `hub-web`, `market-web`, `status-web`, `foresight-web`) is
+ * clean. Reported, not fixed from here.
+ *
+ * The names that DO exist and are used below:
+ *   borders   --cf-line, --cf-line-strong          (never --cf-border)
+ *   states    --cf-success, --cf-warn, --cf-danger (never --cf-status-*, never --cf-critical)
+ *   radii     --cf-radius-sm, --cf-radius, --cf-radius-lg (never --cf-radius-md)
+ *   spacing   --cf-space-3xs … --cf-space-3xl      (never --cf-space-1..5)
+ *   type      --cf-font-sans, --cf-font-mono, --cf-font-display (never --cf-font)
+ *
+ * A `var(--undefined, #hex)` is not a repair either: it is a hard-coded colour wearing a token's
+ * clothes, and it stops following the substrate the moment somebody switches the ash ramp. There
+ * is one literal colour in this file and it is `transparent`.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ */
+
+/* ---- the frame -------------------------------------------------------- */
+
+.tw-skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: var(--cf-space-sm) var(--cf-space-lg);
+  background: var(--cf-accent);
+  color: var(--cf-accent-ink);
+  border-radius: 0 0 var(--cf-radius) 0;
+}
+
+.tw-skip:focus {
+  left: 0;
+}
+
+.wt-subnav {
+  position: sticky;
+  /* The bar's OWN height token, not a number copied out of it. */
+  top: var(--cf-bar-h);
+  z-index: 20;
+  background: var(--cf-bg);
+  border-bottom: 1px solid var(--cf-line);
+}
+
+.wt-subnav__inner {
+  max-width: var(--cf-max-w);
+  margin: 0 auto;
+  display: flex;
+  gap: var(--cf-space-xs);
+  padding: 0 var(--cf-space-xl);
+  overflow-x: auto;
+}
+
+.wt-subnav__link {
+  padding: var(--cf-space-md) var(--cf-space-sm);
+  color: var(--cf-fg-dim);
+  text-decoration: none;
+  font-size: var(--cf-text-md);
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+
+.wt-subnav__link:hover {
+  color: var(--cf-fg);
+}
+
+.wt-subnav__link.is-active {
+  color: var(--cf-fg);
+  border-bottom-color: var(--cf-accent);
+}
+
+.wt-main {
+  max-width: var(--cf-max-w);
+  margin: 0 auto;
+  padding: var(--cf-space-2xl) var(--cf-space-xl) var(--cf-space-3xl);
+  font-family: var(--cf-font-sans);
+  color: var(--cf-fg);
+}
+
+/* ---- the four states, from the template ------------------------------- */
+
+.wt-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--cf-space-sm);
+  padding: var(--cf-space-3xl) var(--cf-space-xl);
+  border-radius: var(--cf-radius-lg);
+  text-align: center;
+}
+
+.wt-state__icon {
+  font-size: var(--cf-text-3xl);
+  line-height: 1;
+}
+
+.wt-state__title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.wt-state__hint,
+.wt-state__meta {
+  margin: 0;
+  color: var(--cf-fg-dim);
+  font-size: var(--cf-text-md);
+  max-width: 34rem;
+}
+
+.wt-state__action {
+  display: flex;
+  gap: var(--cf-space-sm);
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: var(--cf-space-sm);
+}
+
+.wt-state--empty {
+  border: 1px dashed var(--cf-line);
+  color: var(--cf-fg-dim);
+}
+
+.wt-state--failed {
+  border: 1px solid var(--cf-danger);
+}
+
+.wt-state--failed .wt-state__icon,
+.wt-state--forbidden .wt-state__icon {
+  color: var(--cf-danger);
+}
+
+.wt-state--forbidden {
+  border: 1px solid var(--cf-line);
+  background: var(--cf-bg-sunken);
+}
+
+/*
+ * The request id is the string a user reads down a phone line or pastes into a support form, so
+ * it is monospace, selectable and set apart.
+ */
+.wt-reqid,
+.tw-reqid {
+  user-select: all;
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--cf-radius-sm);
+  background: var(--cf-bg-sunken);
+  font-family: var(--cf-font-mono);
+}
+
+.wt-spinner {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  border: 2px solid var(--cf-line-strong);
+  border-top-color: var(--cf-accent);
+  animation: tw-spin 700ms linear infinite;
+}
+
+@keyframes tw-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Respecting a stated preference is not optional; a spinner is the classic trigger. */
+@media (prefers-reduced-motion: reduce) {
+  .wt-spinner {
+    animation-duration: 3s;
+  }
+}
+
+/* ---- page furniture --------------------------------------------------- */
+
+.tw-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-xl);
+}
+
+.tw-page__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cf-space-lg);
+}
+
+.tw-page__title {
+  margin: 0;
+  font-family: var(--cf-font-display);
+  font-size: var(--cf-text-3xl);
+  font-weight: 600;
+}
+
+.tw-page__id {
+  font-size: var(--cf-text-sm);
+  color: var(--cf-fg-mute);
+}
+
+.tw-page__lede {
+  margin: 0;
+  color: var(--cf-fg-dim);
+  max-width: 46rem;
+}
+
+.tw-page__back {
+  margin: var(--cf-space-xl) 0 0;
+  font-size: var(--cf-text-md);
+}
+
+.tw-section__title {
+  margin: var(--cf-space-2xl) 0 0;
+  font-size: var(--cf-text-xl);
+  font-weight: 600;
+}
+
+.tw-dim {
+  color: var(--cf-fg-mute);
+}
+
+.tw-absent {
+  color: var(--cf-fg-mute);
+  font-style: italic;
+}
+
+/*
+ * The product's central claim, given a panel rather than a footnote: fees and slippage are
+ * charged, and this is not an exchange.
+ */
+.tw-claim {
+  margin: 0;
+  padding: var(--cf-space-lg) var(--cf-space-xl);
+  border: 1px solid var(--cf-line-strong);
+  border-left: 3px solid var(--cf-accent);
+  border-radius: var(--cf-radius);
+  background: var(--cf-surface);
+  color: var(--cf-fg-dim);
+  max-width: 52rem;
+}
+
+.tw-claim strong {
+  color: var(--cf-fg);
+}
+
+/* ---- the modelled label ----------------------------------------------- */
+
+/*
+ * NOT decoration. Every figure a backtest produces describes a simulation over bars that have
+ * already happened, and the label goes next to the numbers rather than under them. It is bordered
+ * on the accent so it reads as part of the report, not as a legal footer somebody learns to skip.
+ */
+.tw-modelled {
+  display: flex;
+  align-items: baseline;
+  gap: var(--cf-space-sm);
+  margin: 0;
+  padding: var(--cf-space-lg) var(--cf-space-xl);
+  border: 1px solid var(--cf-accent);
+  border-radius: var(--cf-radius);
+  background: var(--cf-surface);
+  color: var(--cf-fg-dim);
+  max-width: 52rem;
+}
+
+.tw-modelled__flag {
+  color: var(--cf-accent);
+  font-size: var(--cf-text-xl);
+  line-height: 1;
+}
+
+.tw-modelled__lead {
+  color: var(--cf-fg);
+}
+
+.tw-modelled-tag {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--cf-accent);
+  border-radius: var(--cf-radius-sm);
+  color: var(--cf-fg);
+  font-size: var(--cf-text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ---- cards: the strategy catalogue ------------------------------------ */
+
+.tw-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--cf-space-xl);
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+}
+
+.tw-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-md);
+  padding: var(--cf-space-xl);
+  border: 1px solid var(--cf-line);
+  border-radius: var(--cf-radius-lg);
+  background: var(--cf-surface-solid);
+}
+
+.tw-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cf-space-sm);
+}
+
+.tw-card__title {
+  margin: 0;
+  font-size: var(--cf-text-xl);
+  font-weight: 600;
+}
+
+.tw-chip {
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--cf-line-strong);
+  border-radius: var(--cf-radius-sm);
+  color: var(--cf-fg-dim);
+  font-size: var(--cf-text-xs);
+  white-space: nowrap;
+}
+
+.tw-card__tagline {
+  margin: 0;
+  color: var(--cf-fg);
+}
+
+/*
+ * The weakness is set at the SAME weight as the tagline, deliberately — the catalogue's own
+ * contract is that a rule states what it gets wrong, and shrinking it into a caption is how that
+ * becomes advertising again.
+ */
+.tw-card__weakness {
+  margin: 0;
+  color: var(--cf-fg-dim);
+}
+
+.tw-card__weakness-label {
+  display: inline-block;
+  margin-right: var(--cf-space-2xs);
+  color: var(--cf-warn);
+  font-size: var(--cf-text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tw-card__action {
+  margin: auto 0 0;
+  padding-top: var(--cf-space-md);
+}
+
+.tw-params {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-sm);
+  border-top: 1px solid var(--cf-line);
+  padding-top: var(--cf-space-md);
+}
+
+.tw-params__row {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  gap: var(--cf-space-sm);
+}
+
+.tw-params__label {
+  color: var(--cf-fg-dim);
+  font-size: var(--cf-text-md);
+}
+
+.tw-params__value {
+  margin: 0;
+  font-size: var(--cf-text-md);
+}
+
+.tw-params__range {
+  color: var(--cf-fg-mute);
+}
+
+.tw-params__help {
+  display: block;
+  color: var(--cf-fg-mute);
+  font-size: var(--cf-text-xs);
+}
+
+.tw-params__none {
+  margin: 0;
+  color: var(--cf-fg-mute);
+  font-size: var(--cf-text-md);
+}
+
+/* ---- tables ------------------------------------------------------------ */
+
+/*
+ * The horizontal scroll lives on this wrapper, never on the page. A table wide enough to push the
+ * document sideways makes every other column on the page unreadable on a phone.
+ */
+.tw-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--cf-line);
+  border-radius: var(--cf-radius);
+}
+
+.tw-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--cf-text-md);
+}
+
+.tw-table th,
+.tw-table td {
+  padding: var(--cf-space-md) var(--cf-space-lg);
+  text-align: left;
+  border-bottom: 1px solid var(--cf-line);
+  white-space: nowrap;
+}
+
+.tw-table th {
+  color: var(--cf-fg-mute);
+  font-weight: 500;
+  font-size: var(--cf-text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--cf-bg-sunken);
+}
+
+.tw-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.tw-table tbody tr:hover {
+  background: var(--cf-surface-hover);
+}
+
+.tw-table__caption {
+  margin: 0;
+  color: var(--cf-fg-dim);
+  font-size: var(--cf-text-md);
+}
+
+/* ---- facts, metrics, notes -------------------------------------------- */
+
+.tw-facts {
+  margin: 0;
+  display: grid;
+  gap: var(--cf-space-lg);
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  padding: var(--cf-space-xl);
+  border: 1px solid var(--cf-line);
+  border-radius: var(--cf-radius-lg);
+  background: var(--cf-surface-solid);
+}
+
+.tw-fact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-3xs);
+  min-width: 0;
+}
+
+.tw-fact__label {
+  color: var(--cf-fg-mute);
+  font-size: var(--cf-text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tw-fact__value {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.tw-report {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-xl);
+}
+
+.tw-report__title {
+  margin: 0;
+  font-size: var(--cf-text-2xl);
+  font-weight: 600;
+}
+
+.tw-report__subtitle {
+  margin: 0;
+  font-size: var(--cf-text-xl);
+  font-weight: 600;
+}
+
+.tw-report__note {
+  margin: 0;
+  color: var(--cf-fg-dim);
+  max-width: 52rem;
+}
+
+.tw-metrics {
+  display: grid;
+  gap: var(--cf-space-lg);
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+}
+
+.tw-metric {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-3xs);
+  padding: var(--cf-space-lg);
+  border: 1px solid var(--cf-line);
+  border-radius: var(--cf-radius);
+  background: var(--cf-surface-solid);
+}
+
+.tw-metric__label {
+  color: var(--cf-fg-mute);
+  font-size: var(--cf-text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tw-metric__value {
+  font-size: var(--cf-text-2xl);
+  font-weight: 600;
+}
+
+.tw-metric__note {
+  color: var(--cf-fg-dim);
+  font-size: var(--cf-text-xs);
+}
+
+.tw-notes {
+  padding: var(--cf-space-lg) var(--cf-space-xl);
+  border: 1px solid var(--cf-warn);
+  border-radius: var(--cf-radius);
+  background: var(--cf-surface);
+}
+
+.tw-notes__title {
+  margin: 0 0 var(--cf-space-sm);
+  font-size: var(--cf-text-md);
+  font-weight: 600;
+}
+
+.tw-notes__list {
+  margin: 0;
+  padding-left: var(--cf-space-xl);
+  color: var(--cf-fg-dim);
+}
+
+.tw-pending {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--cf-space-md);
+  padding: var(--cf-space-xl);
+  border: 1px dashed var(--cf-line-strong);
+  border-radius: var(--cf-radius-lg);
+  color: var(--cf-fg-dim);
+}
+
+.tw-pending strong {
+  color: var(--cf-fg);
+}
+
+.tw-note {
+  display: flex;
+  align-items: baseline;
+  gap: var(--cf-space-sm);
+  margin: 0;
+  padding: var(--cf-space-lg) var(--cf-space-xl);
+  border-radius: var(--cf-radius);
+  background: var(--cf-surface);
+  color: var(--cf-fg-dim);
+}
+
+.tw-note--warn {
+  border: 1px solid var(--cf-warn);
+}
+
+.tw-note__icon {
+  color: var(--cf-warn);
+}
+
+.tw-error {
+  margin: 0;
+  padding: var(--cf-space-lg) var(--cf-space-xl);
+  border: 1px solid var(--cf-danger);
+  border-radius: var(--cf-radius);
+  background: var(--cf-surface);
+}
+
+/* ---- badges: word, glyph, then tone ------------------------------------ */
+
+/*
+ * Colour is the THIRD channel here, never the first. The estate's reserved status hues sit ΔE 4.6
+ * apart under protanopia, so a badge that meant something only by being amber would mean nothing
+ * to a reader who cannot separate it from the green one.
+ */
+.tw-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cf-space-2xs);
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--cf-line-strong);
+  border-radius: var(--cf-radius-sm);
+  font-size: var(--cf-text-xs);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.tw-badge__glyph {
+  line-height: 1;
+}
+
+.tw-badge--good {
+  border-color: var(--cf-success);
+  color: var(--cf-success);
+}
+
+.tw-badge--warn {
+  border-color: var(--cf-warn);
+  color: var(--cf-warn);
+}
+
+.tw-badge--crit {
+  border-color: var(--cf-danger);
+  color: var(--cf-danger);
+}
+
+.tw-badge--busy {
+  border-color: var(--cf-accent);
+  color: var(--cf-accent);
+}
+
+.tw-badge--mute {
+  border-color: var(--cf-line-strong);
+  color: var(--cf-fg-mute);
+}
+
+/* ---- forms -------------------------------------------------------------- */
+
+.tw-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-xl);
+  max-width: 42rem;
+}
+
+.tw-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-2xs);
+}
+
+.tw-field__label {
+  font-size: var(--cf-text-md);
+  font-weight: 500;
+}
+
+.tw-field__help {
+  color: var(--cf-fg-mute);
+  font-size: var(--cf-text-xs);
+}
+
+.tw-field__note {
+  margin: 0;
+  color: var(--cf-fg-dim);
+  font-size: var(--cf-text-md);
+}
+
+.tw-field__note--warn {
+  padding: var(--cf-space-md) var(--cf-space-lg);
+  border-left: 3px solid var(--cf-warn);
+  background: var(--cf-surface);
+}
+
+.tw-field__weakness {
+  color: var(--cf-fg-mute);
+}
+
+.tw-input {
+  padding: var(--cf-space-sm) var(--cf-space-md);
+  border: 1px solid var(--cf-line-strong);
+  border-radius: var(--cf-radius-sm);
+  background: var(--cf-bg-sunken);
+  color: var(--cf-fg);
+  font-family: inherit;
+  font-size: var(--cf-text-md);
+}
+
+.tw-input:focus-visible {
+  outline: 2px solid var(--cf-accent);
+  outline-offset: 1px;
+}
+
+.tw-fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-lg);
+  margin: 0;
+  padding: var(--cf-space-xl);
+  border: 1px solid var(--cf-line);
+  border-radius: var(--cf-radius);
+}
+
+.tw-fieldset__legend {
+  padding: 0 var(--cf-space-sm);
+  color: var(--cf-fg-mute);
+  font-size: var(--cf-text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tw-fieldset__note {
+  margin: 0;
+  color: var(--cf-fg-dim);
+  font-size: var(--cf-text-md);
+}
+
+.tw-radio {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--cf-space-sm);
+  align-items: start;
+  color: var(--cf-fg-dim);
+  font-size: var(--cf-text-md);
+}
+
+.tw-radio strong {
+  color: var(--cf-fg);
+}
+
+.tw-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cf-space-lg);
+}
+
+.tw-form__hint {
+  color: var(--cf-fg-mute);
+  font-size: var(--cf-text-xs);
+  max-width: 26rem;
+}
+
+/* ---- bot actions -------------------------------------------------------- */
+
+.tw-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cf-space-md);
+  padding: var(--cf-space-lg) var(--cf-space-xl);
+  border: 1px solid var(--cf-line);
+  border-radius: var(--cf-radius);
+  background: var(--cf-surface-solid);
+}
+
+.tw-actions__note {
+  flex: 1 1 20rem;
+  margin: 0;
+  color: var(--cf-fg-dim);
+  font-size: var(--cf-text-xs);
+}
+
+.tw-actions__note strong {
+  color: var(--cf-fg);
+}
+
+/*
+ * `.cf-btn` is the design system's. These two modifiers are this app's, because ui.css ships
+ * `.cf-btn` and `.cf-btn--ember` only — there is no `--primary` or `--danger` upstream, and using
+ * a class the design system does not define would render an unstyled button rather than fail.
+ * Checked against `ui/packages/ui/src/ui.css` rather than assumed.
+ */
+.cf-btn--primary {
+  border-color: var(--cf-accent);
+  background: var(--cf-accent);
+  color: var(--cf-accent-ink);
+}
+
+.cf-btn--primary:hover:not(:disabled) {
+  background: var(--cf-accent-hover);
+  border-color: var(--cf-accent-hover);
+}
+
+.cf-btn--danger {
+  border-color: var(--cf-danger);
+  color: var(--cf-danger);
+}
+
+.cf-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- responsive --------------------------------------------------------- */
+
+@media (max-width: 40rem) {
+  .wt-main {
+    padding: var(--cf-space-xl) var(--cf-space-lg) var(--cf-space-2xl);
+  }
+
+  .tw-params__row {
+    grid-template-columns: 1fr;
+  }
+}

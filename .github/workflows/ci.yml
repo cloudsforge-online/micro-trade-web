@@ -1,0 +1,558 @@
+# Continuous integration.
+#
+# ────────────────────────────────────────────────────────────────────────────────────────────────
+# THE `check` AND `image` JOBS BELOW ARE TEMPORARY, exactly as they are in `micro-admin-web`,
+# `micro-mint-web` and `micro-hub-web`. The org's reusable `web-ci.yml` is the target and the
+# `hygiene` job already calls the org repository; the two local jobs exist for one reason and
+# disappear with it:
+#
+#   @cloudsforge/ui is unpublished, and this repository consumes it as `link:../ui/packages/ui`.
+#   The reusable workflow does a single checkout and then `pnpm install --frozen-lockfile`, which
+#   cannot resolve a sibling directory that is not there. The day the design system is published
+#   and the specifier in package.json becomes `^1.0.0`, everything from `check:` to the end of
+#   `image:` is deleted and replaced by:
+#
+#     jobs:
+#       ci:
+#         uses: cloudsforge-online/micro-org/.github/workflows/web-ci.yml@main
+#         with:
+#           app: trade-web
+#           deep-link-path: /backtests/5c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f
+#         permissions:
+#           contents: read
+#           packages: read
+#
+#   — the calling convention in `org/templates/web/_github/workflows/ci.yml`. The measured target
+#   in docs/ecosystem/03 §5 is zero repositories with a bespoke CI file, so treat every line from
+#   `check:` down as a liability with a deletion date rather than as something to extend.
+#
+# TWO INPUTS OF THE REUSABLE WORKFLOW WILL STILL NOT SUIT THIS REPOSITORY:
+#
+#   * its `image` job probes a deep route and requires a 200 for ANY address. This app's nginx.conf
+#     enumerates its real routes and answers 404 for everything else ON PURPOSE, so `build-image:
+#     false` will be passed and the image is checked here, where the probe can assert the honest
+#     answer as well as the deep link.
+#   * it checks out no SIBLING SERVICE, so `test/trade.test.ts` would skip its cross-repository half
+#     and the route citations would never be verified. That is the check this repository exists to
+#     have; it stays local until the reusable workflow grows the input.
+#
+# `deep-link-path` is `/backtests/<uuid>` — a REAL route, declared as a wildcard in
+# `src/lib/routes.ts` and exported as `DEEP_LINK_PATH`, which `test/routes.test.ts` checks this
+# file against. A probe against a path the app does not own proves only that the 404 page renders.
+# ────────────────────────────────────────────────────────────────────────────────────────────────
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: trade-web }
+
+      # Temporary, for the same reason as the Dockerfile's second build context: the design system
+      # is unpublished and resolves through `link:../ui/packages/ui`. It is also what
+      # `test/tokens.test.ts` reads to prove every custom property this app names exists.
+      - uses: actions/checkout@v4
+        with:
+          repository: cloudsforge-online/micro-ui
+          path: ui
+          # micro-ui is private; without a contents:read token this checkout 404s and the job dies
+          # before install. Same wiring as the service repos' runtime checkout.
+          token: ${{ secrets.ESTATE_READ_TOKEN }}
+
+      # ══════════════════════════════════════════════════════════════════════════════════════════
+      # THE SERVICE THIS CLIENT IS BUILT AGAINST, CHECKED OUT SO THE CITATIONS CAN BE VERIFIED.
+      #
+      # `test/trade.test.ts` reads `trade/src/server.ts` and requires that every route this bundle
+      # calls is registered at the line its citation names, that the one route called without a
+      # bearer really makes no `authenticate()` call, that the four routes which authenticate
+      # THROUGH `ownedBot` still do, and that every mutation still requires an `Idempotency-Key`.
+      # Eight clients in this estate were built against a surface somebody imagined; one made every
+      # on-chain escrow activation fail with a false diagnosis.
+      #
+      # Only `src/` is fetched — the citations are line numbers in source, and nothing here builds
+      # or runs the service.
+      # ══════════════════════════════════════════════════════════════════════════════════════════
+      - uses: actions/checkout@v4
+        with:
+          repository: cloudsforge-online/micro-trade
+          path: trade
+          token: ${{ secrets.ESTATE_READ_TOKEN }}
+          sparse-checkout: |
+            src
+
+      # The brand assets, so test/brand-chrome.test.ts can compare the bytes in public/ against the
+      # source set rather than merely checking that a file with the right name exists.
+      - uses: actions/checkout@v4
+        with:
+          repository: cloudsforge-online/micro-brand
+          path: brand
+          token: ${{ secrets.ESTATE_READ_TOKEN }}
+          sparse-checkout: |
+            assets/trade
+
+      # `/auth/me` nests the profile under `user`. This repository states that as a fact and cites
+      # two lines for it; `test/citations.test.ts` checks both are inside the files they name.
+      - uses: actions/checkout@v4
+        with:
+          repository: cloudsforge-online/micro-identity
+          path: identity
+          token: ${{ secrets.ESTATE_READ_TOKEN }}
+          sparse-checkout: |
+            src
+
+      # The template this repository follows on the `/auth/me` shape, rather than micro-mint-web.
+      # Cited, so checked.
+      - uses: actions/checkout@v4
+        with:
+          repository: cloudsforge-online/micro-web-template
+          path: web-template
+          token: ${{ secrets.ESTATE_READ_TOKEN }}
+          sparse-checkout: |
+            src
+            Dockerfile
+
+      # Pinned, because the checkout lives at trade-web/ and the action looks for the packageManager
+      # field in the workspace root, where there is no package.json.
+      - uses: pnpm/action-setup@v4
+        with: { version: 11.9.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm, cache-dependency-path: trade-web/pnpm-lock.yaml }
+
+      # `link:` resolves to the sibling's own node_modules, so the design system must be installed
+      # before this repository is — without this, `tsc` cannot resolve ../ui's own imports (react,
+      # react/jsx-runtime) when it typechecks the linked sources.
+      - name: Install the sibling design system
+        run: pnpm --dir ui install --frozen-lockfile
+
+      - name: Install
+        working-directory: trade-web
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        working-directory: trade-web
+        run: pnpm typecheck
+
+      - name: Test
+        working-directory: trade-web
+        run: pnpm test
+
+      # ── The route cross-check must have RUN, not merely not failed ────────────────────────────
+      #
+      # `test/trade.test.ts` skips its cross-repository half when there is no micro-trade checkout,
+      # so that `pnpm test` passes for somebody who cloned only this repository. A skipped test is
+      # an unmeasured one, so on the runner the absence has to be fatal — otherwise a checkout that
+      # silently produced nothing would look exactly like a client whose citations are all correct.
+      - name: The citations were checked against the real service
+        working-directory: trade-web
+        run: |
+          set -euo pipefail
+          test -f ../trade/src/server.ts || {
+            echo "::error::micro-trade was not checked out; the route citations were never verified"
+            exit 1
+          }
+          out=$(node --import tsx --test test/trade.test.ts 2>&1 || true)
+          if printf '%s\n' "$out" | grep -q 'SKIPPED: no micro-trade checkout'; then
+            echo "::error::the route cross-check skipped itself while micro-trade was present"
+            exit 1
+          fi
+          printf '%s\n' "$out" | grep -q 'is registered at trade/src/server.ts:334' || {
+            echo "::error::the route cross-check did not run against trade/src/server.ts"
+            exit 1
+          }
+          # Eleven called routes plus three declined ones, each asserted against its own line.
+          count=$(printf '%s\n' "$out" | grep -c 'is registered at trade/src/server.ts:')
+          [ "$count" -ge 14 ] || {
+            echo "::error::only $count route citations were verified; the surface has fourteen"
+            exit 1
+          }
+          echo "ok: $count cited routes verified against the service that serves them"
+
+      # …and the cross-check can fail. Bend one citation and require the suite to go red, so a
+      # `trade.test.ts` reduced to assertions that always pass cannot look like a verified client.
+      - name: …and it would have noticed a wrong citation
+        working-directory: trade-web
+        run: |
+          set -euo pipefail
+          cp test/trade.test.ts "$RUNNER_TEMP/trade.test.ts.orig"
+          sed -i "s|path: '/v1/strategies', line: 334|path: '/v1/strategies', line: 335|" test/trade.test.ts
+          if node --import tsx --test test/trade.test.ts >/dev/null 2>&1; then
+            echo "::error::the cross-check passed a citation off by one line — it is not reading the service"
+            cp "$RUNNER_TEMP/trade.test.ts.orig" test/trade.test.ts
+            exit 1
+          fi
+          cp "$RUNNER_TEMP/trade.test.ts.orig" test/trade.test.ts
+          echo "ok: a citation off by one line turns the suite red, so a pass is evidence"
+
+      # ── The design-system cross-check must also have RUN ──────────────────────────────────────
+      #
+      # `test/tokens.test.ts` proves every `--cf-*` this stylesheet reads is declared by micro-ui.
+      # micro-mint-web ships ten that are not, across 72 declarations, and nothing in that
+      # repository fails — an undefined custom property invalidates the declaration silently.
+      - name: The design tokens were checked against the design system
+        working-directory: trade-web
+        run: |
+          set -euo pipefail
+          test -f ../ui/packages/ui/src/tokens.css || {
+            echo "::error::micro-ui was not checked out; the token references were never verified"
+            exit 1
+          }
+          out=$(node --import tsx --test test/tokens.test.ts 2>&1 || true)
+          if printf '%s\n' "$out" | grep -q 'SKIPPED: no micro-ui checkout'; then
+            echo "::error::the token cross-check skipped itself while micro-ui was present"
+            exit 1
+          fi
+          printf '%s\n' "$out" | grep -q 'every property this stylesheet reads is declared' || {
+            echo "::error::the token cross-check did not run against tokens.css"
+            exit 1
+          }
+          echo "ok: every custom property this stylesheet names exists upstream"
+
+      - name: …and it would have noticed an invented token
+        working-directory: trade-web
+        run: |
+          set -euo pipefail
+          cp src/styles.css "$RUNNER_TEMP/styles.css.orig"
+          printf '\n.tw-canary { border: 1px solid var(--cf-border); }\n' >> src/styles.css
+          if node --import tsx --test test/tokens.test.ts >/dev/null 2>&1; then
+            echo "::error::the token cross-check accepted --cf-border, which does not exist"
+            cp "$RUNNER_TEMP/styles.css.orig" src/styles.css
+            exit 1
+          fi
+          cp "$RUNNER_TEMP/styles.css.orig" src/styles.css
+          echo "ok: an undefined custom property turns the suite red"
+
+      # ── Every OTHER citation, swept ────────────────────────────────────────────────────────────
+      #
+      # `test/trade.test.ts` proves the eleven route citations exactly. This repository carries
+      # about 270 more, into bots.ts, fees.ts, performance.ts, identity and micro-ui. The sweep
+      # cannot tell whether a citation means what the sentence around it says, but it catches the
+      # failure that actually happens: a file growing or shrinking under a line number nobody
+      # re-read. Three of the four sources this programme inherited had drifted that way.
+      #
+      # The sweep prints which repositories it could NOT check. That line is surfaced here rather
+      # than swallowed: a green run must never imply more than it measured.
+      - name: Every citation names a line that exists
+        working-directory: trade-web
+        run: |
+          set -euo pipefail
+          out=$(node --import tsx --test test/citations.test.ts 2>&1) || {
+            printf '%s\n' "$out"
+            echo "::error::a citation in this repository names a line that does not exist"
+            exit 1
+          }
+          printf '%s\n' "$out" | grep -q 'names a line INSIDE that file' || {
+            echo "::error::the citation sweep did not run"
+            exit 1
+          }
+          if printf '%s\n' "$out" | grep 'UNCHECKED:'; then
+            echo "::notice::the citations into those repositories were not verified on this run"
+          fi
+          echo "ok: every citation into a checked-out repository resolves"
+
+      - name: Build
+        working-directory: trade-web
+        run: pnpm build
+
+      # A frontend that builds to nothing is a blank page, not a build failure. The previous estate
+      # served SPAs from the API process and shipped an image with no dist in it.
+      - name: The bundle exists
+        working-directory: trade-web
+        run: |
+          set -euo pipefail
+          test -f dist/index.html || { echo "::error::dist/index.html is missing after a successful build"; exit 1; }
+          echo "ok: $(find dist -type f | wc -l | tr -d ' ') files in dist"
+
+      # The brand chrome must survive the BUILD as well as be present in the source tree.
+      # test/brand-chrome.test.ts asserts the source; this asserts the artefact, because Vite copies
+      # publicDir at build time and a misconfigured publicDir would pass the first and fail the
+      # second.
+      - name: The brand chrome reached the bundle
+        working-directory: trade-web
+        run: |
+          set -euo pipefail
+          for asset in favicon-32x32.png favicon-192x192.png favicon-512x512.png og-1200x630.png; do
+            test -f "dist/$asset" || { echo "::error::dist/$asset is missing from the build output"; exit 1; }
+          done
+          echo "ok: the favicons and the og card are in dist"
+
+  rules:
+    name: Estate rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No build-time configuration
+        # The same rule as test/no-build-time-config.test.ts, checked again here so it fails even
+        # if somebody deletes the test along with the line it forbids. A `VITE_` variable is read
+        # at build time and frozen into the artefact, and an artefact with an environment frozen
+        # into it has to be rebuilt to be promoted — which means the thing that reaches production
+        # is not the thing that passed CI.
+        run: |
+          set -uo pipefail
+          if grep -rn --include='*.ts' --include='*.tsx' --include='*.html' \
+               -e 'import\.meta\.env' -e 'VITE_' src index.html; then
+            echo "::error::this bundle must read no build-time environment; hosts come from cloudsforgeHosts() at runtime"
+            exit 1
+          fi
+          echo "ok: no build-time environment"
+
+      - name: No hard-coded CloudsForge hostname
+        # A literal hostname is a second, unversioned copy of the surface registry, and the copy is
+        # the one that will be wrong.
+        run: |
+          set -uo pipefail
+          if grep -rn --include='*.ts' --include='*.tsx' 'cloudsforge\.online' src; then
+            echo "::error::resolve hosts through cloudsforgeHosts() rather than naming them"
+            exit 1
+          fi
+          echo "ok: no literal hostnames in src"
+
+      - name: The SPA fallback keeps its 404
+        # Comments are stripped first. nginx.conf's own header QUOTES the directive it forbids, in
+        # order to explain why the routes are enumerated by hand, so a grep over the raw file
+        # matches the warning and would fail a correct config.
+        run: |
+          set -uo pipefail
+          directives=$(grep -v '^[[:space:]]*#' nginx.conf)
+          if printf '%s\n' "$directives" | grep -nE 'try_files[[:space:]]+\$uri[[:space:]]+(\$uri/[[:space:]]+)?/index\.html'; then
+            echo "::error::unknown paths must 404; serve the shell through error_page 404 /index.html"
+            exit 1
+          fi
+          printf '%s\n' "$directives" | grep -q 'error_page 404 /index.html'
+          echo "ok: unknown paths answer 404"
+
+      - name: The auth callback is redeemed before the app renders
+        # The hand-off code has to leave the address bar before the exchange goes over the wire,
+        # and that only happens if bootstrapSession() runs before React mounts.
+        run: grep -q 'bootstrapSession' src/main.tsx
+
+      - name: The route table, the navigation and nginx agree
+        # Already asserted by test/routes.test.ts; repeated here so deleting the test does not
+        # silently delete the rule.
+        run: test -f test/routes.test.ts && grep -q 'nginx.conf' test/routes.test.ts
+
+      - name: Every route this client calls cites the line that serves it
+        # The rule test/trade.test.ts enforces, restated so that deleting the test does not delete
+        # it. Every `/v1/...` path in the client must appear in a file that also carries a
+        # `trade/src/server.ts:<line>` citation.
+        run: |
+          set -uo pipefail
+          paths=$(grep -coE "'/v1/[^']*'" src/lib/trade.ts || true)
+          cites=$(grep -coE 'trade/src/server\.ts:[0-9]+' src/lib/trade.ts || true)
+          if [ "${cites:-0}" -lt 11 ]; then
+            echo "::error::src/lib/trade.ts carries ${cites:-0} route citations; the called surface has eleven"
+            exit 1
+          fi
+          if grep -rn --include='*.tsx' -E "api<[^>]*>\(\s*[\`'\"]/v1/" src; then
+            echo "::error::a page calls /v1 directly; every call goes through src/lib/trade.ts, where it is cited"
+            exit 1
+          fi
+          echo "ok: ${paths:-0} route literals, ${cites:-0} citations, and no uncited call site"
+
+      - name: Every mutation sends an Idempotency-Key
+        # trade/src/server.ts:775-783 answers 400 without one, on all three mutating routes. This
+        # is the rule micro-mint-web's equivalent asserts in the OPPOSITE direction, because mint
+        # reads no such header — copying either client to the other service breaks every write.
+        run: |
+          set -uo pipefail
+          sent=$(grep -coE "'idempotency-key':" src/lib/trade.ts || true)
+          if [ "${sent:-0}" -ne 3 ]; then
+            echo "::error::src/lib/trade.ts sends ${sent:-0} idempotency keys; the three mutations each need one"
+            exit 1
+          fi
+          echo "ok: three mutations, three keys"
+
+      - name: No act-as-anyone parameter
+        # `GET /v1/backtests` and `GET /v1/bots` honour a `userId` query parameter for an admin
+        # principal (`ownerOf`, trade/src/server.ts:728-734). From a customer bundle it can only
+        # ever be the caller's own id or a 403, so exposing it would put an act-as-anyone-shaped
+        # control in a product app for no reachable behaviour.
+        run: |
+          set -uo pipefail
+          if grep -rnE "(onBehalfOf|actAs|impersonat)" --include='*.ts' --include='*.tsx' src; then
+            echo "::error::a customer acts as themselves; this app has no act-as primitive"
+            exit 1
+          fi
+          if grep -rnE "searchParams.set\('userId'|query:.*userId" --include='*.ts' --include='*.tsx' src; then
+            echo "::error::the userId query parameter is admin-only on trade and must not be sent from here"
+            exit 1
+          fi
+          echo "ok: no act-as-anyone primitive"
+
+      - name: A modelled number is labelled as one
+        # The product's stated character. Also asserted by test/render.test.ts; repeated so
+        # deleting the test does not delete the rule.
+        run: |
+          set -uo pipefail
+          for page in backtest backtests new-backtest; do
+            grep -qE 'Modelled(Note|Tag)|MODELLED' "src/pages/$page.tsx" || {
+              echo "::error::src/pages/$page.tsx prints a backtest figure and never says it is modelled"
+              exit 1
+            }
+          done
+          if grep -rniE '\bguarantee|\bwill (earn|make|return|profit)|expected returns?|risk[- ]free|beat the market' \
+               --include='*.tsx' --include='*.html' src index.html; then
+            echo "::error::this product does not promise a return"
+            exit 1
+          fi
+          echo "ok: every modelled figure says so, and nothing promises a return"
+
+      - name: Not an exchange
+        # No order book, no market making. Asserted as an absence, because the vocabulary is what
+        # would arrive first.
+        run: |
+          set -uo pipefail
+          if grep -rniE 'order[- ]?book|market[- ]mak|bid/ask|depth chart' --include='*.tsx' src/pages \
+               | grep -viE 'there is no order book'; then
+            echo "::error::Forge Trade is not an exchange"
+            exit 1
+          fi
+          echo "ok: no exchange vocabulary"
+
+      - name: Every design token this stylesheet names is a real one
+        # test/tokens.test.ts proves it against the sibling checkout. This is the half that runs
+        # without one: the ten property names micro-mint-web invented are refused by name.
+        # Comments are stripped first, for the same reason the nginx step strips them: the
+        # stylesheet's own header QUOTES the property names it forbids in order to explain why.
+        # A grep over the raw file matches the explanation and fails a correct stylesheet.
+        run: |
+          set -uo pipefail
+          css=$(perl -0pe 's{/\*.*?\*/}{}gs' src/styles.css)
+          if printf '%s\n' "$css" | grep -nE 'var\(--cf-(border|radius-md|space-[1-5][^a-z0-9-]|status-(good|warn|crit)|critical|warning|font[^-])'; then
+            echo "::error::that custom property does not exist in tokens.css; see the header of src/styles.css"
+            exit 1
+          fi
+          if printf '%s\n' "$css" | grep -nE 'var\(--cf-[a-z0-9-]+[[:space:]]*,'; then
+            echo "::error::a var() fallback is a hard-coded value wearing a token's clothes"
+            exit 1
+          fi
+          if printf '%s\n' "$css" | grep -nE '#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\('; then
+            echo "::error::no literal colours; every colour comes from a token"
+            exit 1
+          fi
+          echo "ok: real tokens only, no fallbacks, no literals"
+
+  image:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: trade-web }
+      - uses: actions/checkout@v4
+        with:
+          repository: cloudsforge-online/micro-ui
+          path: ui
+          token: ${{ secrets.ESTATE_READ_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: trade-web
+          build-contexts: uipkg=ui
+          build-args: RELEASE=${{ github.sha }}
+          push: false
+          load: true
+          tags: trade-web:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # PROBED, NOT READ. Both defects this step guards were invisible in the config and obvious in
+      # a response: nginx's `add_header` is all-or-nothing per level, so a location that sets
+      # Cache-Control silently loses every inherited security header; and `try_files` is a file
+      # lookup rather than an internal redirect, so serving /index.html from `location = /` never
+      # enters `location = /index.html`. Reading the file suggests both are fine. Curling it does
+      # not.
+      - name: The image serves the app, 404s what it does not own, and sends the headers it promises
+        run: |
+          set -uo pipefail
+          docker run -d --name ci-trade-web -p 127.0.0.1:8080:8080 trade-web:ci
+          for _ in $(seq 1 30); do
+            code=$(curl -s -m 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/ || true)
+            [ "$code" = "200" ] && break
+            sleep 1
+          done
+          [ "${code:-}" = "200" ] || { echo "::error::the image returned ${code:-no answer} for /"; docker logs --tail 60 ci-trade-web; exit 1; }
+
+          fail=0
+
+          # A route this app OWNS must survive a hard refresh. The path is DEEP_LINK_PATH in
+          # src/lib/routes.ts, and test/routes.test.ts checks this file against it.
+          deep=$(curl -s -m 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/backtests/5c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f || true)
+          [ "$deep" = "200" ] || { echo "::error::an owned route returned $deep — it must be served the shell"; fail=1; }
+
+          # The bot detail page, which is the address a customer reloads while a live bot runs.
+          bot=$(curl -s -m 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/bots/5c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f || true)
+          [ "$bot" = "200" ] || { echo "::error::a bot page returned $bot"; fail=1; }
+
+          # A route it does NOT own must answer 404 while still serving the shell, so the reader
+          # gets a real page and the status line tells the truth. This is the assertion the org's
+          # reusable image job cannot make, because it requires a 200 for any deep link.
+          unknown=$(curl -s -m 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/nope/not/a/route || true)
+          [ "$unknown" = "404" ] || { echo "::error::an unknown address returned $unknown; it must be 404"; fail=1; }
+          curl -s -m 5 http://127.0.0.1:8080/nope/not/a/route | grep -q '<div id="root">' \
+            || { echo "::error::the 404 did not serve the app shell"; fail=1; }
+
+          check() { # url, header, expected-substring, label
+            got=$(curl -sI "$1" | tr -d '\r' | grep -i "^$2:" | cut -d' ' -f2- || true)
+            case "${got:-}" in
+              "") echo "::error::$4 is missing $2"; fail=1 ;;
+              *"$3"*) echo "  ok   $4: $2: $got" ;;
+              *) echo "::error::$4 has the wrong $2 (got '${got:-nothing}', wanted '$3')"; fail=1 ;;
+            esac
+          }
+
+          asset=$(curl -s http://127.0.0.1:8080/ | grep -oE '/assets/[^"]+\.js' | head -1)
+          for target in "http://127.0.0.1:8080/" "http://127.0.0.1:8080/bots" "http://127.0.0.1:8080$asset"; do
+            [ -n "$asset" ] || [ "$target" != "http://127.0.0.1:8080" ] || continue
+            check "$target" X-Content-Type-Options "nosniff" "$target"
+            # SAMEORIGIN, not DENY: this is a public product surface with legitimate embeds inside
+            # Hub. The operator console is the one that uses DENY, and for a stated reason.
+            check "$target" X-Frame-Options "SAMEORIGIN" "$target"
+            check "$target" Referrer-Policy "strict-origin" "$target"
+          done
+          check "http://127.0.0.1:8080/" Cache-Control "no-store" "the shell"
+          check "http://127.0.0.1:8080/bots" Cache-Control "no-store" "an enumerated route"
+          [ -n "$asset" ] && check "http://127.0.0.1:8080$asset" Cache-Control "immutable" "a hashed asset"
+
+          # This surface must NOT be kept out of an index: the strategy catalogue is a public page.
+          robots=$(curl -sI http://127.0.0.1:8080/ | tr -d '\r' | grep -ci '^X-Robots-Tag:' || true)
+          [ "${robots:-0}" = "0" ] || { echo "::error::this public surface sends X-Robots-Tag"; fail=1; }
+
+          # The brand chrome is SERVED by the image, not merely committed to the repository. The web
+          # template's Dockerfile once did not copy public/ into the build context, so four frontends
+          # shipped an image with no icon in it while their own brand test passed. Fixed upstream at
+          # micro-web-template/Dockerfile:39; this probe is what would have caught it.
+          for asset in favicon-32x32.png favicon-192x192.png og-1200x630.png; do
+            code=$(curl -s -m 5 -o /dev/null -w '%{http_code}' "http://127.0.0.1:8080/$asset" || true)
+            [ "$code" = "200" ] || { echo "::error::/$asset returned $code from the image"; fail=1; }
+          done
+
+          docker rm -f ci-trade-web >/dev/null 2>&1 || true
+          exit $fail
+      - name: Down
+        if: always()
+        run: docker rm -f ci-trade-web || true
+
+  hygiene:
+    # The org's reusable secret check. Cheap, and it catches the failure that cannot be undone: a
+    # secret pushed to a repository is compromised the moment it lands, and rotating it is the only
+    # remedy.
+    uses: cloudsforge-online/micro-org/.github/workflows/secret-hygiene.yml@main
+    permissions:
+      contents: read

@@ -1,0 +1,77 @@
+<!doctype html>
+<!--
+  data-cf-product picks the accent ramp and data-cf-substrate the ash ramp, both from
+  @cloudsforge/ui/tokens.css. They are on <html> and set STATICALLY here rather than by React,
+  because a page that paints before the attributes land flashes the default ember and then changes
+  colour.
+
+  'trade' is quench teal, #2a9e93 — its own block in tokens.css
+  (`ui/packages/ui/src/tokens.css:348`), and the accent the registry gives this surface
+  (`ui/packages/ui/src/surfaces.ts:200-212`). Checked rather than assumed: `admin` was set against
+  a selector that did not exist, and the console wore the company's colour by accident for as long
+  as that was true.
+
+  'warm' is the ash ramp the brand marks in brand/assets/trade/ are drawn on, and the one every
+  other product frontend in the estate uses.
+-->
+<html lang="en-GB" data-cf-product="trade" data-cf-substrate="warm">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="colour-scheme" content="dark" />
+    <!--
+      The build that produced this bundle. Stamped by the Dockerfile, read by src/lib/obs.ts, and
+      the reason an error report can be pinned to the deploy that introduced it. It is an identity
+      rather than a configuration: it names the artefact, it does not tell it where it is running.
+    -->
+    <meta name="cf-release" content="dev" />
+
+    <!--
+      The description says what the product is AND what it is not, in the same sentence, because
+      this string is the one that ends up in a search result. Forge Trade is not an exchange: it
+      has no order book and it makes no market.
+    -->
+    <meta
+      name="description"
+      content="Backtest a strategy against real bars, then run it as a paper or live bot. Fees and slippage are charged, because a strategy that only works for free does not work. Not an exchange."
+    />
+
+    <!--
+      Brand chrome for the `trade` surface, from micro-brand's assets/trade/ set, copied
+      byte-identical — test/brand-chrome.test.ts compares the bytes in both directions.
+
+      This surface DOES ship an og card. brand/assets/trade/ holds one (og-1200x630.png) and Forge
+      Trade is a public product whose catalogue is a page people link to. 18-build-status.md §3.3k
+      drew the opposite conclusion only for the operator console, which nobody shares outward.
+    -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/favicon-512x512.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/favicon-192x192.png" />
+
+    <!--
+      ONE og block, not two. foresight-web/index.html declares og:type, og:title and og:description
+      twice — the second set silently wins in every crawler and the first is dead text nobody
+      edits. Reported there; not repeated here, and test/brand-chrome.test.ts counts each property.
+
+      The image is a RELATIVE path so the card resolves against whichever origin served the page,
+      which is the same rule the rest of this bundle follows for hosts.
+
+      The description carries no number. A card that said "beat the market" or quoted a return
+      would be this bundle making a promise in the one place nobody reads the surrounding page.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Forge Trade" />
+    <meta
+      property="og:description"
+      content="Test the idea before you fund it. Backtests and bots, charged the fee and slippage a real fill would cost. Results are modelled, not promised."
+    />
+    <meta property="og:image" content="/og-1200x630.png" />
+
+    <title>Forge Trade</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
