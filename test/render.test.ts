@@ -33,6 +33,21 @@ import { describe, it } from 'node:test'
 const at = (p: string) => fileURLToPath(new URL(`../${p}`, import.meta.url))
 const read = (p: string): string => readFileSync(at(p), 'utf8')
 
+/**
+ * A page with its comments removed.
+ *
+ * The vocabulary checks below have to run over what a page can PUT ON SCREEN, not over the notes
+ * explaining why it may not. This file, index.html and nginx.conf all quote the thing they forbid
+ * in order to explain the rule, and a scan of the raw text matches the explanation and fails a
+ * correct file — a rule that can only be satisfied by deleting the sentence explaining it is a
+ * rule somebody deletes. Same countermeasure as `directives` in test/routes.test.ts.
+ */
+const rendered = (p: string): string =>
+  read(p)
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
+
 const PAGES = readdirSync(at('src/pages')).filter((f) => f.endsWith('.tsx'))
 
 /** Pages that print a figure produced by a backtest. */
@@ -92,10 +107,17 @@ describe('a modelled number says so, on the surface where it is shown', () => {
       /\bproven (?:strategy|returns?)\b/i,
     ]
     for (const page of PAGES) {
-      const source = read(`src/pages/${page}`)
+      const source = rendered(`src/pages/${page}`)
       for (const pattern of FORBIDDEN) {
         assert.doesNotMatch(source, pattern, `${page} matches ${pattern}`)
       }
+    }
+  })
+
+  it('the same rule applies to index.html, which is where a crawler reads the product', () => {
+    const html = rendered('index.html')
+    for (const pattern of [/\bguarantee[sd]?\b/i, /\bbeat the market\b/i, /\bexpected returns?\b/i]) {
+      assert.doesNotMatch(html, pattern, `index.html matches ${pattern}`)
     }
   })
 
@@ -144,7 +166,7 @@ describe('fees and slippage are visible, because that is the product', () => {
   it('paper is never described as free', () => {
     // The one sentence that would undo `trade/src/bots.ts:73-80`.
     for (const page of PAGES) {
-      const source = read(`src/pages/${page}`)
+      const source = rendered(`src/pages/${page}`)
       assert.doesNotMatch(source, /paper (?:is|trading is) free/i, `${page} calls paper free`)
       assert.doesNotMatch(source, /free practice/i, `${page} calls paper free practice`)
     }
@@ -169,7 +191,7 @@ describe('this is not an exchange, and the vocabulary stays out', () => {
   it('no page uses order-book or market-making language', () => {
     const FORBIDDEN = [/order book/i, /orderbook/i, /\bmarket[- ]mak/i, /\bbid[/-]ask\b/i, /\bdepth chart\b/i]
     for (const page of PAGES) {
-      const source = read(`src/pages/${page}`)
+      const source = rendered(`src/pages/${page}`)
       for (const pattern of FORBIDDEN) {
         // The one legitimate mention is the front page saying it does NOT have one.
         if (page === 'strategies.tsx' && /there is no order book/i.test(source)) continue

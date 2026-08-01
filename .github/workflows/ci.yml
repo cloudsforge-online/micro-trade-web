@@ -397,6 +397,12 @@ jobs:
       - name: A modelled number is labelled as one
         # The product's stated character. Also asserted by test/render.test.ts; repeated so
         # deleting the test does not delete the rule.
+        #
+        # COMMENTS ARE STRIPPED FIRST — the third time in this file, and for the same reason each
+        # time. index.html's own comment explains that the social card must not say "beat the
+        # market", so a grep over the raw file matches the explanation and fails a correct page.
+        # A rule that can only be satisfied by deleting the sentence explaining it is a rule that
+        # gets deleted.
         run: |
           set -uo pipefail
           for page in backtest backtests new-backtest; do
@@ -405,23 +411,30 @@ jobs:
               exit 1
             }
           done
-          if grep -rniE '\bguarantee|\bwill (earn|make|return|profit)|expected returns?|risk[- ]free|beat the market' \
-               --include='*.tsx' --include='*.html' src index.html; then
-            echo "::error::this product does not promise a return"
-            exit 1
-          fi
+          strip() { perl -0pe 's{<!--.*?-->}{}gs; s{/\*.*?\*/}{}gs; s{^\s*//.*$}{}gm' "$1"; }
+          for f in index.html $(find src -name '*.tsx'); do
+            if strip "$f" | grep -niE '\bguarantee|\bwill (earn|make|return|profit)|expected returns?|risk[- ]free|beat the market' \
+                 | sed "s|^|$f:|" | grep .; then
+              echo "::error::this product does not promise a return"
+              exit 1
+            fi
+          done
           echo "ok: every modelled figure says so, and nothing promises a return"
 
       - name: Not an exchange
         # No order book, no market making. Asserted as an absence, because the vocabulary is what
         # would arrive first.
+        # Comments stripped first, as above.
         run: |
           set -uo pipefail
-          if grep -rniE 'order[- ]?book|market[- ]mak|bid/ask|depth chart' --include='*.tsx' src/pages \
-               | grep -viE 'there is no order book'; then
-            echo "::error::Forge Trade is not an exchange"
-            exit 1
-          fi
+          strip() { perl -0pe 's{<!--.*?-->}{}gs; s{/\*.*?\*/}{}gs; s{^\s*//.*$}{}gm' "$1"; }
+          for f in $(find src/pages -name '*.tsx'); do
+            if strip "$f" | grep -niE 'order[- ]?book|market[- ]mak|bid/ask|depth chart' \
+                 | grep -viE 'there is no order book' | sed "s|^|$f:|" | grep .; then
+              echo "::error::Forge Trade is not an exchange"
+              exit 1
+            fi
+          done
           echo "ok: no exchange vocabulary"
 
       - name: Every design token this stylesheet names is a real one
