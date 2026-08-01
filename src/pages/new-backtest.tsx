@@ -132,7 +132,7 @@ export function NewBacktestPage() {
         <label className="tw-field">
           <span className="tw-field__label">Strategy</span>
           <select
-            className="tw-input"
+            className="cf-input"
             value={strategyId}
             required
             onChange={(e) => {
@@ -162,7 +162,7 @@ export function NewBacktestPage() {
         <label className="tw-field">
           <span className="tw-field__label">Price series</span>
           <select
-            className="tw-input"
+            className="cf-input"
             value={seriesId}
             required
             onChange={(e) => {
@@ -197,7 +197,7 @@ export function NewBacktestPage() {
                   {spec.unit ? ` (${spec.unit})` : ''}
                 </span>
                 <input
-                  className="tw-input cf-num"
+                  className="cf-input cf-num"
                   type="number"
                   min={spec.min}
                   max={spec.max}
@@ -227,7 +227,7 @@ export function NewBacktestPage() {
           <label className="tw-field">
             <span className="tw-field__label">Starting cash (Shards)</span>
             <input
-              className="tw-input cf-num"
+              className="cf-input cf-num"
               inputMode="numeric"
               pattern="[0-9]+"
               value={startCash}
@@ -246,7 +246,7 @@ export function NewBacktestPage() {
           <label className="tw-field">
             <span className="tw-field__label">Fee (basis points)</span>
             <input
-              className="tw-input cf-num"
+              className="cf-input cf-num"
               type="number"
               min={0}
               max={5000}
@@ -267,7 +267,7 @@ export function NewBacktestPage() {
           <label className="tw-field">
             <span className="tw-field__label">Slippage (basis points)</span>
             <input
-              className="tw-input cf-num"
+              className="cf-input cf-num"
               type="number"
               min={0}
               max={5000}
@@ -287,7 +287,7 @@ export function NewBacktestPage() {
           <label className="tw-field">
             <span className="tw-field__label">Seed</span>
             <input
-              className="tw-input cf-num"
+              className="cf-input cf-num"
               type="number"
               min={0}
               max={4294967295}

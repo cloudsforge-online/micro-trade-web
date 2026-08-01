@@ -697,20 +697,7 @@
   color: var(--cf-fg-mute);
 }
 
-.tw-input {
-  padding: var(--cf-space-sm) var(--cf-space-md);
-  border: 1px solid var(--cf-line-strong);
-  border-radius: var(--cf-radius-sm);
-  background: var(--cf-bg-sunken);
-  color: var(--cf-fg);
-  font-family: inherit;
-  font-size: var(--cf-text-md);
-}
 
-.tw-input:focus-visible {
-  outline: 2px solid var(--cf-accent);
-  outline-offset: 1px;
-}
 
 .tw-fieldset {
   display: flex;

@@ -127,7 +127,7 @@ export function NewBotPage() {
         <label className="tw-field">
           <span className="tw-field__label">Name</span>
           <input
-            className="tw-input"
+            className="cf-input"
             value={name}
             maxLength={120}
             required
@@ -195,7 +195,7 @@ export function NewBotPage() {
         <label className="tw-field">
           <span className="tw-field__label">Strategy</span>
           <select
-            className="tw-input"
+            className="cf-input"
             value={strategyId}
             required
             onChange={(e) => {
@@ -221,7 +221,7 @@ export function NewBotPage() {
         <label className="tw-field">
           <span className="tw-field__label">Price series</span>
           <select
-            className="tw-input"
+            className="cf-input"
             value={seriesId}
             required
             onChange={(e) => {
@@ -248,7 +248,7 @@ export function NewBotPage() {
                   {spec.unit ? ` (${spec.unit})` : ''}
                 </span>
                 <input
-                  className="tw-input cf-num"
+                  className="cf-input cf-num"
                   type="number"
                   min={spec.min}
                   max={spec.max}
@@ -268,7 +268,7 @@ export function NewBotPage() {
         <label className="tw-field">
           <span className="tw-field__label">Allocation (Shards)</span>
           <input
-            className="tw-input cf-num"
+            className="cf-input cf-num"
             inputMode="numeric"
             pattern="[0-9]+"
             value={allocation}
@@ -287,7 +287,7 @@ export function NewBotPage() {
         <label className="tw-field">
           <span className="tw-field__label">Performance fee (basis points)</span>
           <input
-            className="tw-input cf-num"
+            className="cf-input cf-num"
             type="number"
             min={0}
             max={5000}
