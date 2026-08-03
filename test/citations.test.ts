@@ -46,6 +46,10 @@ const SIBLINGS: readonly string[] = [
   'hub-api',
   'service-template',
   'org',
+  // The browser telemetry sink. `src/lib/obs.ts` cites its record shape — `fromWire`, `RUM_KINDS`
+  // and the migration's CHECK constraint — because that contract is the reason every event this
+  // bundle sent was silently discarded, and a contract quoted from memory is how it went wrong.
+  'lantern',
 ]
 
 /** Where a sibling is checked out. `micro-trade` and `trade` are the same directory. */
