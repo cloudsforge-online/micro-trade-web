@@ -42,7 +42,9 @@ import { MemoryRouter, Route, Routes as RouterRoutes } from 'react-router-dom'
 
 import { withScreen, type Routes, type Screen } from './dom.ts'
 import * as fx from './fixtures.ts'
+import { ApiError } from '../src/lib/api.ts'
 import { AuthProvider } from '../src/lib/auth.tsx'
+import { useIdempotentMutation, useMutation } from '../src/lib/mutation.ts'
 import { BotPage } from '../src/pages/bot.tsx'
 import { NewBacktestPage } from '../src/pages/new-backtest.tsx'
 import { NewBotPage } from '../src/pages/new-bot.tsx'
@@ -359,6 +361,487 @@ describe('the visible state survives the latch', () => {
           'the retry after an UNKNOWN outcome minted a new key, which is how a reservation ' +
             'gets placed twice',
         )
+      },
+    )
+  })
+})
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   5. The hooks themselves, directly
+   ══════════════════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * `useMutation` has NO CALLER in this bundle — every write goes through `useIdempotentMutation`,
+ * because trade requires an `Idempotency-Key` on all three of them. So every scenario above
+ * exercises the idempotent hook and none of them touches the plain one, and a fix to it would be
+ * unfalsifiable: the source could be reverted to the state guard and the whole suite would stay
+ * green.
+ *
+ * It is exported, and the next write added to this app will reach for it. A guard nothing proves
+ * is a guard that will be quietly broken. These probes are how the plain hook is held to the same
+ * bar as the one the pages use.
+ *
+ * They render a real component through the real harness — the hook is only meaningful inside
+ * React's render and event machinery, and a probe that called `run()` on its own would be
+ * asserting a promise rather than a control.
+ */
+const FILLER =
+  'A probe component, mounted so the hook under test runs inside React rather than beside it.'
+
+function PlainProbe({ fn }: { fn: () => Promise<string> }): ReactElement {
+  const m = useMutation(fn, 'The probe failed.')
+  return h(
+    'section',
+    null,
+    h('p', null, FILLER),
+    h('button', { type: 'button', disabled: m.busy, onClick: () => void m.run() }, 'Commit'),
+    h('p', null, m.busy ? 'working' : 'idle'),
+    m.error ? h('p', { role: 'alert' }, m.error.message) : null,
+    m.result ? h('p', null, `result: ${m.result}`) : null,
+  )
+}
+
+function KeyedProbe({ fn }: { fn: (key: string) => Promise<string> }): ReactElement {
+  const m = useIdempotentMutation(fn, 'The probe failed.')
+  return h(
+    'section',
+    null,
+    h('p', null, FILLER),
+    h('button', { type: 'button', disabled: m.busy, onClick: () => void m.run() }, 'Commit'),
+    h('p', null, m.busy ? 'working' : 'idle'),
+    m.error ? h('p', { role: 'alert' }, m.error.message) : null,
+    m.result ? h('p', null, `result: ${m.result}`) : null,
+  )
+}
+
+/** A `fn` that records every call and resolves after `delay`, so overlap is observable. */
+function recorder(delay: number, outcome: (n: number) => 'ok' | Error) {
+  const calls: string[] = []
+  return {
+    calls,
+    fn: async (key?: string): Promise<string> => {
+      calls.push(key ?? `call-${calls.length + 1}`)
+      const n = calls.length
+      await new Promise((r) => setTimeout(r, delay))
+      const verdict = outcome(n)
+      if (verdict instanceof Error) throw verdict
+      return `done-${n}`
+    },
+  }
+}
+
+describe('useMutation, which no page calls yet', () => {
+  both('two presses in one tick run the write ONCE', async (strict) => {
+    const rec = recorder(20, () => 'ok')
+    await withScreen(
+      h(PlainProbe, { fn: () => rec.fn() }),
+      { strict },
+      async (s) => {
+        twiceInOneTick(s, s.byRole('button', 'Commit'))
+        await s.settle(60)
+        assert.equal(
+          rec.calls.length,
+          1,
+          'the plain hook let two same-tick presses through — it is the primitive the next write ' +
+            'in this app will be built on, and it would carry this defect into it',
+        )
+        assert.match(s.text(), /result: done-1/, 'the one run did not report its result')
+      },
+    )
+  })
+
+  both('the latch is released after a failure, so the control still works', async (strict) => {
+    const rec = recorder(5, (n) => (n === 1 ? new Error('the write blew up') : 'ok'))
+    await withScreen(
+      h(PlainProbe, { fn: () => rec.fn() }),
+      { strict },
+      async (s) => {
+        await s.click(s.byRole('button', 'Commit'))
+        await s.settle(30)
+        assert.equal(s.textOf(s.document.querySelector('[role="alert"]')), 'The probe failed.')
+        await s.click(s.byRole('button', 'Commit'))
+        await s.settle(30)
+        assert.equal(rec.calls.length, 2, 'one failure left the control dead for the life of the page')
+      },
+    )
+  })
+
+  both('the busy affordance is still rendered while the write is in flight', async (strict) => {
+    const rec = recorder(40, () => 'ok')
+    await withScreen(
+      h(PlainProbe, { fn: () => rec.fn() }),
+      { strict },
+      async (s) => {
+        s.clickNoFlush(s.byRole('button', 'Commit'))
+        await s.settle(0)
+        assert.match(s.text(), /working/, 'nothing on screen said the write was running')
+        assert.ok(
+          s.byRole('button', 'Commit').hasAttribute('disabled'),
+          'the control stayed live mid-write: the ref is the guarantee, but a control that ' +
+            'swallows presses with no sign it is working is its own defect',
+        )
+        await s.settle(80)
+        assert.match(s.text(), /idle/, 'the busy state never cleared')
+      },
+    )
+  })
+})
+
+describe('useIdempotentMutation, directly', () => {
+  both('two presses in one tick run the write ONCE, under one key', async (strict) => {
+    const rec = recorder(20, () => 'ok')
+    await withScreen(
+      h(KeyedProbe, { fn: (key: string) => rec.fn(key) }),
+      { strict },
+      async (s) => {
+        twiceInOneTick(s, s.byRole('button', 'Commit'))
+        await s.settle(60)
+        assert.equal(rec.calls.length, 1, 'two same-tick presses ran the write twice')
+        assert.match(String(rec.calls[0]), /^cf-trade-web-/, 'no idempotency key was minted')
+      },
+    )
+  })
+
+  both('an UNKNOWN outcome keeps the key and a KNOWN one drops it', async (strict) => {
+    // 503 → unknown → replay under the same key. Then success → the intent is settled, so a
+    // third press is a NEW intent and must not collide with the old fingerprint
+    // (`trade/src/idempotency.ts:151`).
+    // `keepKeyAfter` branches on `instanceof ApiError` (`src/lib/idempotency.ts:95`), so the probe
+    // throws the real class rather than a look-alike.
+    const keys: string[] = []
+    await withScreen(
+      h(KeyedProbe, {
+        fn: async (key: string) => {
+          keys.push(key)
+          const n = keys.length
+          await new Promise((r) => setTimeout(r, 5))
+          if (n === 1) throw new ApiError(503, 'the ledger is unreachable', 'internal')
+          return `done-${n}`
+        },
+      }),
+      { strict },
+      async (s) => {
+        await s.click(s.byRole('button', 'Commit'))
+        await s.settle(30)
+        await s.click(s.byRole('button', 'Commit'))
+        await s.settle(30)
+        await s.click(s.byRole('button', 'Commit'))
+        await s.settle(30)
+        assert.equal(keys.length, 3, 'the control stopped working')
+        assert.equal(
+          keys[0],
+          keys[1],
+          'a 503 leaves the outcome UNKNOWN, and the retry minted a new key — which is how a ' +
+            'ledger reservation gets placed twice',
+        )
+        assert.notEqual(
+          keys[1],
+          keys[2],
+          'the intent settled and the key was reused, so the next attempt with an edited payload ' +
+            'is a 409 idempotency_key_reuse the customer cannot act on',
+        )
+      },
+    )
+  })
+})
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   6. The harness option itself
+   ══════════════════════════════════════════════════════════════════════════════════════════ */
+
+describe('the strict option really mounts under StrictMode', () => {
+  /**
+   * Without this, `strict: true` could quietly become a no-op and every "under StrictMode" run
+   * above would be a duplicate of its plain twin, passing for the wrong reason. StrictMode's
+   * defining behaviour is that it renders each component twice; that is what is asserted.
+   */
+  it('double-invokes render, and the default mount does not', async () => {
+    for (const [strict, expected] of [
+      [false, 1],
+      [true, 2],
+    ] as const) {
+      let renders = 0
+      const Counter = (): ReactElement => {
+        renders += 1
+        return h('p', null, FILLER)
+      }
+      await withScreen(h(Counter), { strict }, async () => {
+        assert.equal(
+          renders,
+          expected,
+          `strict: ${strict} rendered ${renders} time(s) — the option is not doing what the ` +
+            `scenarios above rely on it for`,
+        )
+      })
+    }
+  })
+})
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   7. What mutation testing found unguarded
+
+   Each test below was written because a deliberate break of the production source left the suite
+   GREEN. They are not extra coverage for its own sake: every one names a defect that could have
+   been introduced without a single test noticing.
+   ══════════════════════════════════════════════════════════════════════════════════════════ */
+
+describe('a KNOWN refusal drops the key', () => {
+  /**
+   * `keepKeyAfter` returning true for everything survived every test in this repository.
+   *
+   * A 422 is a DECISION: nothing was committed, and the customer's next act is to change a field.
+   * Presenting the old key with the edited body is a 409 `idempotency_key_reuse`
+   * (`trade/src/idempotency.ts:151`) that has nothing to do with the change they made — an error
+   * they cannot act on, on a form they have just corrected.
+   */
+  both('after a refusal the next attempt is a NEW intent', async (strict) => {
+    const keys: string[] = []
+    await withScreen(
+      h(KeyedProbe, {
+        fn: async (key: string) => {
+          keys.push(key)
+          const n = keys.length
+          await new Promise((r) => setTimeout(r, 5))
+          if (n === 1) throw new ApiError(422, 'that allocation is below the minimum', 'invalid_argument')
+          return `done-${n}`
+        },
+      }),
+      { strict },
+      async (s) => {
+        await s.click(s.byRole('button', 'Commit'))
+        await s.settle(30)
+        await s.click(s.byRole('button', 'Commit'))
+        await s.settle(30)
+        assert.equal(keys.length, 2, 'the control stopped working after a refusal')
+        assert.notEqual(
+          keys[0],
+          keys[1],
+          'a refusal is a KNOWN outcome and its key must be thrown away — keeping it means the ' +
+            'customer who fixes the field gets a 409 idempotency_key_reuse about the fix',
+        )
+      },
+    )
+  })
+})
+
+describe('every commit control shows it is working', () => {
+  /**
+   * Dropping `disabled` from the create and queue buttons, and from Pause, left the suite green:
+   * nothing asserted the form buttons were ever disabled, and Pause was only ever tested on a bot
+   * where `!canPause` disabled it anyway — so the `busy ||` half was doing nothing observable.
+   */
+  both('the create button is disabled and says so mid-flight', async (strict) => {
+    await withScreen(
+      page(h(NewBotPage), '/bots/new'),
+      {
+        url: `${ORIGIN}/bots/new`,
+        storage: fx.SIGNED_IN,
+        strict,
+        routes: signedIn({
+          ...CATALOGUE,
+          'POST /v1/bots': { status: 201, body: { botId: fx.BOT_ID }, delayMs: 40 },
+        }),
+      },
+      async (s) => {
+        await s.settle(20)
+        s.clickNoFlush(await arm(s, /create|make/i))
+        await s.settle(0)
+        const button = s.byRole('button', 'Creating')
+        assert.ok(button.hasAttribute('disabled'), 'the create button stayed live mid-create')
+        await s.settle(80)
+      },
+    )
+  })
+
+  both('the queue button is disabled and says so mid-flight', async (strict) => {
+    await withScreen(
+      page(h(NewBacktestPage), '/backtests/new'),
+      {
+        url: `${ORIGIN}/backtests/new`,
+        storage: fx.SIGNED_IN,
+        strict,
+        routes: signedIn({
+          ...CATALOGUE,
+          'POST /v1/backtests': {
+            status: 202,
+            body: { backtestId: fx.BACKTEST_ID, status: 'queued' },
+            delayMs: 40,
+          },
+        }),
+      },
+      async (s) => {
+        await s.settle(20)
+        s.clickNoFlush(await arm(s, /queue|run|start/i))
+        await s.settle(0)
+        const button = s.byRole('button', 'Queueing')
+        assert.ok(button.hasAttribute('disabled'), 'the queue button stayed live mid-queue')
+        await s.settle(80)
+      },
+    )
+  })
+
+  /**
+   * Pause, on a RUNNING bot — the only state in which `canPause` is true, and therefore the only
+   * state in which the `busy ||` half of its `disabled` is the thing doing the work. Every
+   * existing scenario used a paused bot, where Pause is disabled for the other reason.
+   */
+  both('Pause is disabled while a pause is in flight', async (strict) => {
+    await withScreen(
+      atRoute('/bots/:id', h(BotPage), `/bots/${fx.BOT_ID}`),
+      {
+        url: `${ORIGIN}/bots/${fx.BOT_ID}`,
+        storage: fx.SIGNED_IN,
+        strict,
+        routes: signedIn({
+          [`GET /v1/bots/${fx.BOT_ID}/settlements`]: { body: { settlements: [] } },
+          [`GET /v1/bots/${fx.BOT_ID}/fills`]: { body: { fills: [] } },
+          [`GET /v1/bots/${fx.BOT_ID}`]: { body: { bot: fx.bot({ status: 'running' }) } },
+          [`POST /v1/bots/${fx.BOT_ID}/actions`]: {
+            status: 200,
+            body: { bot: fx.bot({ status: 'paused' }) },
+            delayMs: 40,
+          },
+        }),
+      },
+      async (s) => {
+        const pause = s.byRole('button', 'Pause')
+        assert.ok(!pause.hasAttribute('disabled'), 'a running bot cannot be paused — wrong fixture')
+        s.clickNoFlush(pause)
+        await s.settle(0)
+        assert.ok(
+          s.byRole('button', 'Pause').hasAttribute('disabled'),
+          'Pause stayed live while a pause was in flight',
+        )
+        await s.settle(80)
+      },
+    )
+  })
+})
+
+describe('editing the form after an UNKNOWN outcome starts a new intent', () => {
+  /**
+   * Removing `submit.reset()` from the allocation field left the suite green.
+   *
+   * It matters in exactly one sequence, and it is not a rare one: the attempt ends UNKNOWN (a 503
+   * from the ledger), so the key is deliberately KEPT for a replay — and then the customer, seeing
+   * an error, changes the allocation and presses again. Same key, different body, and the service
+   * answers 409 `idempotency_key_reuse` (`trade/src/idempotency.ts:151`) rather than doing what
+   * they asked. `reset()` is what makes the edit a new intent.
+   */
+  both('changing the allocation after a 503 mints a new key', async (strict) => {
+    await withScreen(
+      page(h(NewBotPage), '/bots/new'),
+      {
+        url: `${ORIGIN}/bots/new`,
+        storage: fx.SIGNED_IN,
+        strict,
+        routes: signedIn({
+          ...CATALOGUE,
+          'POST /v1/bots': (_wire, n) =>
+            n === 1
+              ? { status: 503, body: fx.error('ledger_unavailable', 'the ledger is unreachable') }
+              : { status: 201, body: { botId: fx.BOT_ID } },
+        }),
+      },
+      async (s) => {
+        await s.settle(20)
+        const commit = await arm(s, /create|make/i)
+        await s.click(commit)
+        await s.settle(30)
+        assert.match(s.text(), /unreachable/i, 'the 503 was not reported')
+
+        const allocation = s
+          .allByRole('textbox')
+          .find((el) => (el as unknown as { value: string }).value === '100000')
+        assert.ok(allocation, 'the allocation field is not where this test thinks it is')
+        await s.type(allocation, '250000')
+        await s.click(s.allByRole('button').find((el) => /create|make/i.test(s.textOf(el))) as Element)
+        await s.settle(30)
+
+        const posted = s.api.matching('POST /v1/bots')
+        assert.equal(posted.length, 2, 'the second attempt was never sent')
+        assert.equal(posted[1]?.json && (posted[1].json as { allocation: string }).allocation, '250000')
+        assert.notEqual(
+          posted[0]?.headers['idempotency-key'],
+          posted[1]?.headers['idempotency-key'],
+          'the edited payload went out under the key held for the ORIGINAL one, which the service ' +
+            'answers 409 idempotency_key_reuse — an error about the customer’s own correction',
+        )
+      },
+    )
+  })
+})
+
+describe('the bot page re-reads exactly when the action changed something', () => {
+  const READ = `GET /v1/bots/${fx.BOT_ID}`
+  const routes = (action: Routes[string]): Routes =>
+    signedIn({
+      [`GET /v1/bots/${fx.BOT_ID}/settlements`]: { body: { settlements: [] } },
+      [`GET /v1/bots/${fx.BOT_ID}/fills`]: { body: { fills: [] } },
+      [READ]: { body: { bot: fx.bot({ status: 'paused' }) } },
+      [`POST /v1/bots/${fx.BOT_ID}/actions`]: action,
+    })
+
+  /** `if (done)` — deleting the condition left the suite green. */
+  both('a REFUSED action does not re-read the bot', async (strict) => {
+    await withScreen(
+      atRoute('/bots/:id', h(BotPage), `/bots/${fx.BOT_ID}`),
+      {
+        url: `${ORIGIN}/bots/${fx.BOT_ID}`,
+        storage: fx.SIGNED_IN,
+        strict,
+        routes: routes({
+          status: 409,
+          body: fx.error('bot_state', 'this bot cannot start from that state'),
+        }),
+      },
+      async (s) => {
+        await s.settle(20)
+        const before = s.api.matching(READ).length
+        await s.click(s.byRole('button', 'Start'))
+        await s.settle(40)
+        assert.equal(
+          s.api.matching(READ).length,
+          before,
+          'a refusal changed nothing, and the page re-read the bot anyway — three requests to be ' +
+            'told the same thing, against a service that just declined',
+        )
+      },
+    )
+  })
+
+  /** And the other half of the same condition: `if (false)` also left the suite green. */
+  both('a SUCCESSFUL action re-reads the bot and shows the new state', async (strict) => {
+    await withScreen(
+      atRoute('/bots/:id', h(BotPage), `/bots/${fx.BOT_ID}`),
+      {
+        url: `${ORIGIN}/bots/${fx.BOT_ID}`,
+        storage: fx.SIGNED_IN,
+        strict,
+        routes: signedIn({
+          [`GET /v1/bots/${fx.BOT_ID}/settlements`]: { body: { settlements: [] } },
+          [`GET /v1/bots/${fx.BOT_ID}/fills`]: { body: { fills: [] } },
+          [READ]: (_wire, n) => ({
+            body: { bot: fx.bot({ status: n <= (strict ? 2 : 1) ? 'paused' : 'running' }) },
+          }),
+          [`POST /v1/bots/${fx.BOT_ID}/actions`]: {
+            status: 200,
+            body: { bot: fx.bot({ status: 'running' }) },
+          },
+        }),
+      },
+      async (s) => {
+        await s.settle(20)
+        assert.match(s.text(), /PAUSED/, 'the fixture did not start paused')
+        const before = s.api.matching(READ).length
+        await s.click(s.byRole('button', 'Start'))
+        await s.settle(40)
+        assert.ok(
+          s.api.matching(READ).length > before,
+          'the bot started and the page never re-read it, so the badge still says PAUSED for a ' +
+            'bot that is running and holding a ledger reservation',
+        )
+        assert.match(s.text(), /RUNNING/, 'the new state never reached the screen')
       },
     )
   })

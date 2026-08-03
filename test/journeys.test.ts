@@ -588,7 +588,12 @@ describe('BJ-ADV — the adversarial matrix', () => {
           [`POST /v1/bots/${fx.BOT_ID}/actions`]: {
             status: 200,
             body: { bot: fx.bot({ status: 'running' }) },
-            delayMs: 15,
+            // 40ms, not 15. The `disabled` assertion below runs after `settle(0)`, which is an
+            // `act()` around a zero-millisecond timer — and on a loaded machine that takes longer
+            // than 15ms to come back, at which point the action has ALREADY completed, `busy` is
+            // false again and the control is legitimately live. This test went red once that way
+            // during a mutation run. The margin is the fix; the assertion is unchanged.
+            delayMs: 40,
           },
         }),
       },
