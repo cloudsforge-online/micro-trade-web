@@ -30,6 +30,36 @@
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  */
 
+/* ---- the base layer --------------------------------------------------- */
+
+/*
+ * The tokens were being DELIVERED and never CONSUMED.
+ *
+ * `index.html` sets `data-cf-product`/`data-cf-substrate` on `<html>`, tokens.css resolves
+ * `--cf-bg` on `:root`, and the bundled stylesheet loads — every one of those was
+ * measured as correct in a real browser while the page still rendered white. Nothing in this file
+ * ever READ those properties on `body`, so the document fell all the way through to the UA
+ * stylesheet: a transparent background, Times, and an 8px margin.
+ *
+ * That is the whole defect. It is invisible to `curl` (the surface returns 200), invisible to a
+ * mocked DOM test (jsdom neither loads the stylesheet nor cascades it), and glaring to the one
+ * person who opened the estate in a browser. `test/base-layer.test.ts` is what makes it visible
+ * again if this block is ever removed.
+ */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--cf-bg);
+  color: var(--cf-fg);
+  font-family: var(--cf-font-sans);
+  /* The bar is dark on every surface; the page follows the substrate. */
+  color-scheme: dark;
+}
+
 /* ---- the frame -------------------------------------------------------- */
 
 .tw-skip {
