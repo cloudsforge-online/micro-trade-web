@@ -159,6 +159,21 @@ export interface MountOptions {
   /** `prefers-reduced-motion: reduce` for the media-query scenarios. */
   reducedMotion?: boolean
   /**
+   * Wrap the tree in `<StrictMode>`, the way `src/main.tsx` actually mounts this app.
+   *
+   * This harness mounts WITHOUT StrictMode by default, and that gap is not cosmetic. StrictMode
+   * double-invokes render, double-runs effects on mount, and re-runs the function bodies of
+   * `useMemo`/`useState` initialisers — so a guard that lives in a REF can behave differently here
+   * from the way it behaves in the browser, and a suite that only ever mounts one way proves the
+   * guard in the mode the customer is not in. The double-submit scenarios below are therefore run
+   * BOTH ways, and neither run is allowed to be the only one.
+   *
+   * It is an option rather than the default because the existing scenarios assert request COUNTS
+   * for reads, and StrictMode's double-mounted effects change those counts without changing
+   * anything a customer sees.
+   */
+  strict?: boolean
+  /**
    * Extra properties on `window`, for the things a page reads off it that no API returns.
    *
    * `window.ethereum` is the one that matters: an injected EIP-1193 provider is not a response
@@ -468,6 +483,10 @@ export async function mount(element: ReactElement, options: MountOptions = {}): 
   doc.body.appendChild(host)
   const root = createRoot(host as unknown as HTMLElement)
 
+  /** `<StrictMode>` when the scenario asks for it, so `rerender` cannot quietly drop it. */
+  const wrap = (el: ReactElement): ReactElement =>
+    options.strict === true ? React.createElement(React.StrictMode, null, el) : el
+
   const flush = async (ms = 0): Promise<void> => {
     await act(async () => {
       await new Promise((r) => setTimeout(r, ms))
@@ -475,7 +494,7 @@ export async function mount(element: ReactElement, options: MountOptions = {}): 
   }
 
   await act(async () => {
-    root.render(element)
+    root.render(wrap(element))
   })
   await flush()
 
@@ -619,7 +638,7 @@ export async function mount(element: ReactElement, options: MountOptions = {}): 
     settle: flush,
     async rerender(next) {
       await act(async () => {
-        root.render(next)
+        root.render(wrap(next))
       })
       await flush()
     },
