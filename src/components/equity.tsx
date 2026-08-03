@@ -20,6 +20,22 @@
  * `hold` is what the same money would have been worth doing nothing. A strategy curve without it
  * is a number with no scale — the estate's own rule is that a strategy which only works for free
  * does not work, and the same honesty applies to one that only beats cash.
+ *
+ * ## And the same numbers, as a table
+ *
+ * `docs/ecosystem/14-testing-strategy.md` §11 makes the table view BOTH the accessibility fallback
+ * and the export path, and `docs/ecosystem/22-browser-journeys.md` BJ-A11Y-08 makes it a
+ * release-gate scenario: "every chart has its table view … reachable by keyboard and carrying the
+ * same numbers".
+ *
+ * An `aria-label` on an `<svg role="img">` says how many points there are. It does not say what
+ * any of them WERE, and a drawdown a reader cannot read the date of is the question the curve was
+ * added to answer, asked again. So the same array is rendered as rows, in a `<details>` — closed
+ * by default so the chart is still the chart, and reachable by keyboard because a `<summary>` is
+ * focusable and operable without a pointer.
+ *
+ * The rows carry the values as they arrived, as strings. Formatting them would be a second opinion
+ * about a number this component has gone to some trouble not to have one about.
  */
 import type { EquityPoint } from '../lib/trade.ts'
 
@@ -72,6 +88,31 @@ export function EquityCurve({ points }: { points: readonly EquityPoint[] }) {
         <path d={path(points, (p) => p.hold, min, span)} className="tw-chart__hold" fill="none" />
         <path d={path(points, (p) => p.equity, min, span)} className="tw-chart__equity" fill="none" />
       </svg>
+      <details className="tw-chart__table">
+        <summary>The same points, as a table</summary>
+        <table className="tw-table">
+          <caption>
+            Every point on the curve above, as it arrived. Amounts are decimal strings in Shards,
+            unformatted, because this is the export path as well as the fallback.
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Bar (unix seconds)</th>
+              <th scope="col">Strategy</th>
+              <th scope="col">Buy and hold</th>
+            </tr>
+          </thead>
+          <tbody>
+            {points.map((point) => (
+              <tr key={point.t}>
+                <td className="cf-num">{point.t}</td>
+                <td className="cf-num">{point.equity}</td>
+                <td className="cf-num">{point.hold}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </details>
       <figcaption className="tw-chart__legend">
         <span className="tw-chart__key tw-chart__key--equity">Strategy</span>
         <span className="tw-chart__key tw-chart__key--hold">Buy and hold</span>

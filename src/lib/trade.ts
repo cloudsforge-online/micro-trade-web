@@ -18,17 +18,17 @@
  *
  * | Method | Path                        | Authenticates      | Idempotency-Key | Verified at             |
  * | ------ | --------------------------- | ------------------ | --------------- | ----------------------- |
- * | GET    | /v1/strategies              | **no**             | —               | trade/src/server.ts:342 |
- * | GET    | /v1/series                  | yes                | —               | trade/src/server.ts:373 |
- * | GET    | /v1/backtests               | yes                | —               | trade/src/server.ts:419 |
- * | GET    | /v1/backtests/:id           | yes                | —               | trade/src/server.ts:427 |
- * | POST   | /v1/backtests               | yes                | **required**    | trade/src/server.ts:464 |
- * | GET    | /v1/bots                    | yes                | —               | trade/src/server.ts:540 |
- * | GET    | /v1/bots/:id                | yes, via ownedBot  | —               | trade/src/server.ts:548 |
- * | GET    | /v1/bots/:id/fills          | yes, via ownedBot  | —               | trade/src/server.ts:553 |
- * | GET    | /v1/bots/:id/settlements    | yes, via ownedBot  | —               | trade/src/server.ts:571 |
- * | POST   | /v1/bots                    | yes                | **required**    | trade/src/server.ts:591 |
- * | POST   | /v1/bots/:id/actions        | yes, via ownedBot  | **required**    | trade/src/server.ts:651 |
+ * | GET    | /v1/strategies              | **no**             | —               | trade/src/server.ts:341 |
+ * | GET    | /v1/series                  | yes                | —               | trade/src/server.ts:372 |
+ * | GET    | /v1/backtests               | yes                | —               | trade/src/server.ts:418 |
+ * | GET    | /v1/backtests/:id           | yes                | —               | trade/src/server.ts:426 |
+ * | POST   | /v1/backtests               | yes                | **required**    | trade/src/server.ts:463 |
+ * | GET    | /v1/bots                    | yes                | —               | trade/src/server.ts:539 |
+ * | GET    | /v1/bots/:id                | yes, via ownedBot  | —               | trade/src/server.ts:547 |
+ * | GET    | /v1/bots/:id/fills          | yes, via ownedBot  | —               | trade/src/server.ts:552 |
+ * | GET    | /v1/bots/:id/settlements    | yes, via ownedBot  | —               | trade/src/server.ts:570 |
+ * | POST   | /v1/bots                    | yes                | **required**    | trade/src/server.ts:590 |
+ * | POST   | /v1/bots/:id/actions        | yes, via ownedBot  | **required**    | trade/src/server.ts:650 |
  *
  * "via ownedBot" is not a stylistic note. Those four handlers contain no literal
  * `await authenticate(ctx, deps)` — they call `ownedBot(ctx, deps, SCOPE)`, which authenticates at
@@ -39,11 +39,11 @@
  *
  * ── Three routes exist and are deliberately NOT called from a browser ─────────────────────────
  *
- *   * `POST /v1/series` (`trade/src/server.ts:378`) and `POST /v1/series/:id/bars`
- *     (`trade/src/server.ts:391`) both call `requireOperator` (`:343`, `:356`), which demands
+ *   * `POST /v1/series` (`trade/src/server.ts:377`) and `POST /v1/series/:id/bars`
+ *     (`trade/src/server.ts:390`) both call `requireOperator` (`:343`, `:356`), which demands
  *     `trade:admin` or `role:admin` (`trade/src/server.ts:787-790`). Candle data is not a
  *     customer's to publish; the operator console is where that belongs.
- *   * `POST /v1/events` (`trade/src/server.ts:720`) is the inbound webhook. It is not a bearer
+ *   * `POST /v1/events` (`trade/src/server.ts:719`) is the inbound webhook. It is not a bearer
  *     surface at all — the credential is an HMAC over the raw bytes, and it answers **403** to an
  *     unsigned caller (`trade/src/server.ts:723-727`). A browser has no business holding that
  *     secret.
@@ -361,7 +361,7 @@ export interface TradeCapabilities {
 
 /* ══════════════════════════════ the calls ══════════════════════════════ */
 /**
- * `GET /v1/backtests/:id/result` — `trade/src/server.ts:447`.
+ * `GET /v1/backtests/:id/result` — `trade/src/server.ts:446`.
  *
  * The equity curve and the fill list. Separate from the summary at `:427` because an equity curve
  * is decimated to a few hundred points and a fill list is unbounded: putting both into the list
@@ -383,7 +383,7 @@ export function getBacktestResult(
 }
 
 /**
- * `GET /v1/capabilities` — `trade/src/server.ts:361`.
+ * `GET /v1/capabilities` — `trade/src/server.ts:360`.
  *
  * **Makes no `authenticate()` call**, like the catalogue: whether this deployment offers live
  * trading is a property of the deployment, not of the caller. Sent with `auth: false`.
@@ -402,7 +402,7 @@ export function getCapabilities(signal?: AbortSignal): Promise<{ capabilities: T
 
 
 /**
- * `GET /v1/strategies` — `trade/src/server.ts:342`.
+ * `GET /v1/strategies` — `trade/src/server.ts:341`.
  *
  * **Makes no `authenticate()` call.** The handler is a one-line body with no principal in it, and
  * the comment above it (`trade/src/server.ts:340-341`) says why: "It is a product surface — the
@@ -420,7 +420,7 @@ export function getStrategies(signal?: AbortSignal): Promise<{ strategies: reado
 }
 
 /**
- * `GET /v1/series` — `trade/src/server.ts:373`.
+ * `GET /v1/series` — `trade/src/server.ts:372`.
  *
  * Authenticates (`:337`) and then lists EVERY series, not the caller's — there is no per-user
  * filter, because a series is estate data rather than customer data (`listSeries`,
@@ -431,7 +431,7 @@ export function getSeries(signal?: AbortSignal): Promise<{ series: readonly Seri
 }
 
 /**
- * `GET /v1/backtests` — `trade/src/server.ts:419`.
+ * `GET /v1/backtests` — `trade/src/server.ts:418`.
  *
  * At most 100, newest first (`trade/src/server.ts:423`). The `userId` query parameter is
  * deliberately NOT exposed: `ownerOf` honours it only for an admin principal and otherwise passes
@@ -444,7 +444,7 @@ export function listBacktests(signal?: AbortSignal): Promise<{ backtests: readon
 }
 
 /**
- * `GET /v1/backtests/:id` — `trade/src/server.ts:427`.
+ * `GET /v1/backtests/:id` — `trade/src/server.ts:426`.
  *
  * The status URL the 202 points at. A malformed id is a 400 (`uuidParam`,
  * `trade/src/server.ts:850-854`) and another customer's id is a **404**, not a 403
@@ -458,7 +458,7 @@ export function getBacktest(id: string, signal?: AbortSignal): Promise<{ backtes
 }
 
 /**
- * `POST /v1/backtests` — `trade/src/server.ts:464`.
+ * `POST /v1/backtests` — `trade/src/server.ts:463`.
  *
  * **202 AND A STATUS URL. THE RUN HAS NOT HAPPENED YET.** The handler validates, claims an
  * idempotency key, writes a `queued` row and enqueues a job AFTER the claim commits
@@ -515,7 +515,7 @@ export function createBacktest(
 }
 
 /**
- * `GET /v1/bots` — `trade/src/server.ts:540`.
+ * `GET /v1/bots` — `trade/src/server.ts:539`.
  *
  * At most 100, newest first (`trade/src/server.ts:544`). Same `userId` reasoning as the backtest
  * list: not exposed.
@@ -525,7 +525,7 @@ export function listBots(signal?: AbortSignal): Promise<{ bots: readonly Bot[] }
 }
 
 /**
- * `GET /v1/bots/:id` — `trade/src/server.ts:548`.
+ * `GET /v1/bots/:id` — `trade/src/server.ts:547`.
  *
  * Authenticates through `ownedBot` (`trade/src/server.ts:801-812`), which calls `authenticate` at
  * `:741` and answers **404** for a bot that is not the caller's (`:744-745`).
@@ -534,14 +534,14 @@ export function getBot(id: string, signal?: AbortSignal): Promise<{ bot: Bot }> 
   return api<{ bot: Bot }>(`/v1/bots/${encodeURIComponent(id)}`, { ...(signal ? { signal } : {}) })
 }
 
-/** `GET /v1/bots/:id/fills` — `trade/src/server.ts:553`. At most 200, newest first. */
+/** `GET /v1/bots/:id/fills` — `trade/src/server.ts:552`. At most 200, newest first. */
 export function listFills(id: string, signal?: AbortSignal): Promise<{ fills: readonly Fill[] }> {
   return api<{ fills: readonly Fill[] }>(`/v1/bots/${encodeURIComponent(id)}/fills`, {
     ...(signal ? { signal } : {}),
   })
 }
 
-/** `GET /v1/bots/:id/settlements` — `trade/src/server.ts:571`. At most 200, newest first. */
+/** `GET /v1/bots/:id/settlements` — `trade/src/server.ts:570`. At most 200, newest first. */
 export function listSettlements(
   id: string,
   signal?: AbortSignal,
@@ -553,7 +553,7 @@ export function listSettlements(
 }
 
 /**
- * `POST /v1/bots` — `trade/src/server.ts:591`.
+ * `POST /v1/bots` — `trade/src/server.ts:590`.
  *
  * Creates a bot in `draft`. It reserves nothing and trades nothing — that is what `start` does.
  * **201 fresh, 200 on a replay** (`trade/src/server.ts:640`).
@@ -584,7 +584,7 @@ export function createBot(idempotencyKey: string, input: CreateBotInput): Promis
 }
 
 /**
- * `POST /v1/bots/:id/actions` — `trade/src/server.ts:651`.
+ * `POST /v1/bots/:id/actions` — `trade/src/server.ts:650`.
  *
  * One route with an `action` rather than three, and the service says why (`:578-585`): the three
  * share their whole precondition set, and "the idempotency key is required here too: `start`
