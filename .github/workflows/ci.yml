@@ -179,11 +179,16 @@ jobs:
             exit 1
           }
           out=$(node --import tsx --test test/trade.test.ts 2>&1 || true)
-          if printf '%s\n' "$out" | grep -q 'SKIPPED: no micro-trade checkout'; then
+          # `grep -q PATTERN <<<"$var"` rather than `printf '%s\n' "$var" | grep -q PATTERN`.
+          # grep -q exits on its first match by design; the producer then writes into a closed pipe,
+          # and `pipefail` promoted that SIGPIPE (exit 141) to a failed step — a gate that failed for
+          # no reason and passed on re-run, which teaches re-running instead of reading. The here-string
+          # is byte-identical input with the same exit status and no pipe, so the rule is unchanged.
+          if grep -q 'SKIPPED: no micro-trade checkout' <<<"$out"; then
             echo "::error::the route cross-check skipped itself while micro-trade was present"
             exit 1
           fi
-          printf '%s\n' "$out" | grep -q "is registered at trade/src/server.ts:${cited}" || {
+          grep -q "is registered at trade/src/server.ts:${cited}" <<<"$out" || {
             echo "::error::the route cross-check did not run against trade/src/server.ts"
             exit 1
           }
@@ -249,11 +254,11 @@ jobs:
             exit 1
           }
           out=$(node --import tsx --test test/tokens.test.ts 2>&1 || true)
-          if printf '%s\n' "$out" | grep -q 'SKIPPED: no micro-ui checkout'; then
+          if grep -q 'SKIPPED: no micro-ui checkout' <<<"$out"; then
             echo "::error::the token cross-check skipped itself while micro-ui was present"
             exit 1
           fi
-          printf '%s\n' "$out" | grep -q 'every property this stylesheet reads is declared' || {
+          grep -q 'every property this stylesheet reads is declared' <<<"$out" || {
             echo "::error::the token cross-check did not run against tokens.css"
             exit 1
           }
@@ -292,7 +297,7 @@ jobs:
             echo "::error::a citation in this repository names a line that does not exist"
             exit 1
           }
-          printf '%s\n' "$out" | grep -q 'names a line INSIDE that file' || {
+          grep -q 'names a line INSIDE that file' <<<"$out" || {
             echo "::error::the citation sweep did not run"
             exit 1
           }
@@ -370,7 +375,7 @@ jobs:
             echo "::error::unknown paths must 404; serve the shell through error_page 404 /index.html"
             exit 1
           fi
-          printf '%s\n' "$directives" | grep -q 'error_page 404 /index.html'
+          grep -q 'error_page 404 /index.html' <<<"$directives"
           echo "ok: unknown paths answer 404"
 
       - name: The auth callback is redeemed before the app renders
