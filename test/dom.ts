@@ -598,7 +598,18 @@ export async function mount(element: ReactElement, options: MountOptions = {}): 
       // activeElement afterwards.
       const order = tabbablesIn(doc)
       const here = doc.activeElement as Element | null
-      const at = here ? order.indexOf(here) : -1
+      let at = here ? order.indexOf(here) : -1
+      if (at < 0 && here) {
+        // The focused element is not itself tabbable — a `tabindex="-1"` dialog is the case that
+        // matters, and it is the state a modal is in immediately after mount. A real browser moves
+        // to the next tabbable AFTER it in document order; the naive fallback of "start at index
+        // 0" sends focus BACKWARDS to the top of the page, which is a place a focus trap has no
+        // reason to guard and made this harness report an escape that a browser would never make.
+        const following = order.findIndex(
+          (el) => (here.compareDocumentPosition(el) & 4) !== 0, // DOCUMENT_POSITION_FOLLOWING
+        )
+        at = following < 0 ? order.length - 1 : following - 1
+      }
       const next = back
         ? order[(at <= 0 ? order.length : at) - 1]
         : order[(at + 1) % Math.max(order.length, 1)]
