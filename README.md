@@ -1,5 +1,11 @@
 # micro-trade-web
 
+[![ci](https://github.com/cloudsforge-online/micro-trade-web/actions/workflows/ci.yml/badge.svg)](https://github.com/cloudsforge-online/micro-trade-web/actions/workflows/ci.yml)
+![node](https://img.shields.io/badge/node-%3E%3D22-5FA04E?logo=node.js&logoColor=white)
+![typescript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
+![module](https://img.shields.io/badge/module-ESM-F7DF1E?logo=javascript&logoColor=black)
+![tests](https://img.shields.io/badge/tests-in--process%20DOM-6E56CF)
+
 Forge Trade's browser client: the public strategy catalogue, the backtest form and the status page a
 queued run is polled on, the bot list, and one bot's fills and fee settlements. It is a static bundle
 served by nginx and nothing else — no server, no session store, no database.
@@ -334,3 +340,10 @@ Recorded rather than fixed from here, because a quiet omission is a trap for the
 * `index.html` declares `og:type`, `og:title` and `og:description` twice. The second set wins in
   every crawler and the first is dead text nobody edits. `test/brand-chrome.test.ts` here counts
   each property so the same thing cannot happen in this repository.
+
+---
+
+## Provenance
+
+The code in this repository was written by **Claude Opus 5** and **Claude Fable 5**, assets
+generated with **FLUX 2 Pro**, under human direction and review.
