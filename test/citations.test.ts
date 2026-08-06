@@ -18,7 +18,7 @@
  * rather than passed over in silence, so a green run never implies more than it measured.
  */
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { extname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, it } from 'node:test'
@@ -158,9 +158,15 @@ describe('every citation names a file that exists', () => {
 
   it('names a file that exists, wherever the repository is checked out', () => {
     const missing = CITATIONS.filter((c) => {
-      const root = siblingRoot(c.path.split('/')[0] ?? '')
+      const head = c.path.split('/')[0] ?? ''
+      const root = siblingRoot(head)
       // A sibling that is not checked out is UNCHECKED, not broken. Reported below.
       if (root !== undefined && !existsSync(root)) return false
+      // And the ESTATE root is absent the same way. CI clones this repository on its own, so
+      // `../docs/` is not there and every ecosystem citation would be reported as naming a missing
+      // file — which is exactly how this went red on six correct citations while passing on a
+      // machine that has the whole estate checked out. Absent means unmeasured, not wrong.
+      if (ESTATE_ROOTS.includes(head) && !existsSync(join(here, '..', 'docs'))) return false
       return resolve(c.path) === null
     })
     assert.deepEqual(
