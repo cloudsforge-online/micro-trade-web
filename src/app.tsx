@@ -8,15 +8,15 @@
  * ── Which routes are gated is read off the SERVICE, not chosen ────────────────────────────────
  *
  * One of the three is public because trade made it public: `GET /v1/strategies`
- * (`trade/src/server.ts:349`) makes no `authenticate()` call at all, and it carries a comment
+ * (`trade/src/server.ts`) makes no `authenticate()` call at all, and it carries a comment
  * saying why — a catalogue behind a token cannot be read by the person deciding whether to sign
  * up. Putting it behind `ProtectedRoute` would send a visitor to sign in for a page the service
  * would have served them, which is the same class of mistake as sending a bearer token to a route
  * that never wanted one.
  *
  * The other two authenticate, so they are gated. The gate is NOT the security boundary — trade
- * verifies the bearer itself (`trade/src/server.ts:786-792`) and every owned row is filtered by
- * `user_id` in the query, so another customer's bot is a 404 (`trade/src/bots.ts:217-223`).
+ * verifies the bearer itself (`trade/src/server.ts`) and every owned row is filtered by
+ * `user_id` in the query, so another customer's bot is a 404 (`trade/src/bots.ts`).
  */
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/shell.tsx'

@@ -7,8 +7,8 @@
  *
  * ── The dev port disagreement, reported rather than papered over ───────────────────────────────
  *
- * The surface registry gives `trade` **devPort 4006** (`ui/packages/ui/src/surfaces.ts:206`, in
- * the block at `surfaces.ts:200-212`). The `trade` service binds **4000**: `trade/src/env.ts:166`
+ * The surface registry gives `trade` **devPort 4006** (`ui/packages/ui/src/surfaces.ts`, in
+ * the block at `surfaces.ts`). The `trade` service binds **4000**: `trade/src/env.ts`
  * defaults `PORT` to 4000 and `trade/.env.example:44` sets it to 4000. Under `pnpm dev` the
  * registry value is the one this bundle calls, so a trade started from its own example
  * environment is not where this app looks.
@@ -32,7 +32,7 @@ import { cloudsforgeHosts, type CloudsForgeHosts, type SurfaceKey } from '@cloud
  * The surface this application IS.
  *
  * It selects the switcher entry marked current, and it names this app's own API host.
- * `ui/packages/ui/src/surfaces.ts:200-212` registers `trade` as a product with `inSwitcher: true`,
+ * `ui/packages/ui/src/surfaces.ts` registers `trade` as a product with `inSwitcher: true`,
  * accent `#2a9e93`, glyph `◐` and subdomain `trade`.
  */
 export const PRODUCT: SurfaceKey = 'trade'

@@ -2,13 +2,13 @@
  * Reading `/auth/me`.
  *
  * Identity answers `{ user: {...}, session: {...}, organisations: [...] }`. The route is
- * `identity/src/server.ts:1180-1192` and the body is built by `toPublicUser` at
- * `identity/src/users.ts:52-63`; both were opened and read for this repository.
+ * `identity/src/server.ts` and the body is built by `toPublicUser` at
+ * `identity/src/users.ts`; both were opened and read for this repository.
  *
  * The estate got this wrong once at the root — the web template read `handle` and `roles` off the
  * TOP level, four frontends inherited it, and every signed-in operator saw a switcher with the
  * admin entries missing because `roles` was always null. It is fixed upstream
- * (`micro-web-template/src/lib/auth.tsx:26`, and lines 98-99 read `me?.user?.…`).
+ * (`micro-web-template/src/lib/auth.tsx`, and lines 98-99 read `me?.user?.…`).
  *
  * This bundle follows the TEMPLATE rather than micro-mint-web on one point: only the nested shape
  * is accepted. mint-web keeps a flat fallback for a rollback path; the template's own comment
@@ -101,7 +101,7 @@ describe('the source says what it does', () => {
   })
 
   it('cites the two lines the shape was read from', () => {
-    assert.match(source, /identity\/src\/server\.ts:1180-1192/)
-    assert.match(source, /identity\/src\/users\.ts:52-63/)
+    assert.match(source, /identity\/src\/server\.ts/)
+    assert.match(source, /identity\/src\/users\.ts/)
   })
 })

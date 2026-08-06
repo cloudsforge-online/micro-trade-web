@@ -1,8 +1,8 @@
 /**
  * Your backtests.
  *
- * `GET /v1/backtests` — `trade/src/server.ts:426`. At most 100, newest first (`:386`), and the
- * caller's own: `ownerOf` (`trade/src/server.ts:800-806`) resolves the subject from the token.
+ * `GET /v1/backtests` — `trade/src/server.ts`. At most 100, newest first (`:386`), and the
+ * caller's own: `ownerOf` (`trade/src/server.ts`) resolves the subject from the token.
  *
  * The `userId` query parameter that route accepts is deliberately not offered here. It is honoured
  * only for an admin principal and is otherwise passed through `subjectUserId`, which refuses a
@@ -102,7 +102,7 @@ function Row({ run }: { run: Backtest }) {
       </td>
       <td className="cf-num">{shards(run.startCash)}</td>
       {/*
-        `metrics` is null until the run completes — `trade/src/backtests.ts:222` writes the column
+        `metrics` is null until the run completes — `trade/src/backtests.ts` writes the column
         only on the complete branch. A dash is the honest answer; a zero would be a claim about a
         run that has not happened.
       */}

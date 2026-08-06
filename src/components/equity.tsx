@@ -4,13 +4,13 @@
  * `runBacktest` wrote `trades` and `equity` into columns that existed, and `COLUMNS` in
  * `trade/src/backtests.ts` selected neither — so no read path could reach them. Every ForgeTrade
  * report could say how deep a drawdown was and never when it happened, which is the one question a
- * curve exists to answer. `GET /v1/backtests/:id/result` (`trade/src/server.ts:454`) now serves it
+ * curve exists to answer. `GET /v1/backtests/:id/result` (`trade/src/server.ts`) now serves it
  * and this draws it.
  *
  * ## Money never becomes a JS number
  *
  * Amounts arrive as decimal strings because `canonicalise` writes every bigint as a quoted string
- * (`trade/src/idempotency.ts:94`). Parsing one with `Number()` silently rounds above 2^53, and a
+ * (`trade/src/idempotency.ts`). Parsing one with `Number()` silently rounds above 2^53, and a
  * chart is exactly where that would go unnoticed — the line would still look plausible. So the
  * range is computed in `BigInt`, and the only division is the final one that turns a value into a
  * pixel, where the loss is a fraction of a pixel and is the point.

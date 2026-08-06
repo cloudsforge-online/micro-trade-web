@@ -13,66 +13,66 @@
  * and then had to explain a 403 that was never about authorisation.
  *
  * `trade` registers its routes through one `define(method, path, handler)` list
- * (`trade/src/server.ts:321-762`), so the surface is enumerable and the citations are stable.
+ * (`trade/src/server.ts`), so the surface is enumerable and the citations are stable.
  * `test/trade.test.ts` reads that file and fails if any line below is off by one.
  *
  * | Method | Path                        | Authenticates      | Idempotency-Key | Verified at             |
  * | ------ | --------------------------- | ------------------ | --------------- | ----------------------- |
- * | GET    | /v1/strategies              | **no**             | —               | trade/src/server.ts:348 |
- * | GET    | /v1/series                  | yes                | —               | trade/src/server.ts:379 |
- * | GET    | /v1/backtests               | yes                | —               | trade/src/server.ts:425 |
- * | GET    | /v1/backtests/:id           | yes                | —               | trade/src/server.ts:433 |
- * | POST   | /v1/backtests               | yes                | **required**    | trade/src/server.ts:470 |
- * | GET    | /v1/bots                    | yes                | —               | trade/src/server.ts:546 |
- * | GET    | /v1/bots/:id                | yes, via ownedBot  | —               | trade/src/server.ts:554 |
- * | GET    | /v1/bots/:id/fills          | yes, via ownedBot  | —               | trade/src/server.ts:559 |
- * | GET    | /v1/bots/:id/settlements    | yes, via ownedBot  | —               | trade/src/server.ts:577 |
- * | POST   | /v1/bots                    | yes                | **required**    | trade/src/server.ts:597 |
- * | POST   | /v1/bots/:id/actions        | yes, via ownedBot  | **required**    | trade/src/server.ts:657 |
+ * | GET    | /v1/strategies              | **no**             | —               | trade/src/server.ts |
+ * | GET    | /v1/series                  | yes                | —               | trade/src/server.ts |
+ * | GET    | /v1/backtests               | yes                | —               | trade/src/server.ts |
+ * | GET    | /v1/backtests/:id           | yes                | —               | trade/src/server.ts |
+ * | POST   | /v1/backtests               | yes                | **required**    | trade/src/server.ts |
+ * | GET    | /v1/bots                    | yes                | —               | trade/src/server.ts |
+ * | GET    | /v1/bots/:id                | yes, via ownedBot  | —               | trade/src/server.ts |
+ * | GET    | /v1/bots/:id/fills          | yes, via ownedBot  | —               | trade/src/server.ts |
+ * | GET    | /v1/bots/:id/settlements    | yes, via ownedBot  | —               | trade/src/server.ts |
+ * | POST   | /v1/bots                    | yes                | **required**    | trade/src/server.ts |
+ * | POST   | /v1/bots/:id/actions        | yes, via ownedBot  | **required**    | trade/src/server.ts |
  *
  * "via ownedBot" is not a stylistic note. Those four handlers contain no literal
  * `await authenticate(ctx, deps)` — they call `ownedBot(ctx, deps, SCOPE)`, which authenticates at
- * `trade/src/server.ts:813` and then 404s a bot belonging to somebody else
- * (`trade/src/server.ts:816-817`). A test that grepped each handler body for `authenticate(` would
+ * `trade/src/server.ts` and then 404s a bot belonging to somebody else
+ * (`trade/src/server.ts`). A test that grepped each handler body for `authenticate(` would
  * declare all four unauthenticated and this client would then send them no token. The cross-check
  * in `test/trade.test.ts` therefore accepts either spelling and asserts which one each route uses.
  *
  * ── Three routes exist and are deliberately NOT called from a browser ─────────────────────────
  *
- *   * `POST /v1/series` (`trade/src/server.ts:384`) and `POST /v1/series/:id/bars`
- *     (`trade/src/server.ts:397`) both call `requireOperator` (`:343`, `:356`), which demands
- *     `trade:admin` or `role:admin` (`trade/src/server.ts:794-797`). Candle data is not a
+ *   * `POST /v1/series` (`trade/src/server.ts`) and `POST /v1/series/:id/bars`
+ *     (`trade/src/server.ts`) both call `requireOperator` (`:343`, `:356`), which demands
+ *     `trade:admin` or `role:admin` (`trade/src/server.ts`). Candle data is not a
  *     customer's to publish; the operator console is where that belongs.
- *   * `POST /v1/events` (`trade/src/server.ts:726`) is the inbound webhook. It is not a bearer
+ *   * `POST /v1/events` (`trade/src/server.ts`) is the inbound webhook. It is not a bearer
  *     surface at all — the credential is an HMAC over the raw bytes, and it answers **403** to an
- *     unsigned caller (`trade/src/server.ts:730-734`). A browser has no business holding that
+ *     unsigned caller (`trade/src/server.ts`). A browser has no business holding that
  *     secret.
  *
- * `/livez`, `/readyz` and `/metrics` (`server.ts:307`, `:309`, `:317`) are the platform probes and
+ * `/livez`, `/readyz` and `/metrics` (`server.ts`, `:309`, `:317`) are the platform probes and
  * are not wrapped here either.
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  *
  * ── Every mutation carries an Idempotency-Key, and that is a fact rather than a nicety ─────────
  *
  * All three POSTs this client makes call `idempotencyKeyOf` and answer **400** without the header
- * (`trade/src/server.ts:847-855`). That is the opposite of `mint`, which reads no such header
+ * (`trade/src/server.ts`). That is the opposite of `mint`, which reads no such header
  * anywhere — so a client copied from micro-mint-web would fail every write with a message about a
  * header it had never heard of. See `src/lib/idempotency.ts` for when a key may be presented
  * twice, which is the part that is easy to get backwards.
  *
  * ── Amounts are strings, everywhere, and nothing here parses one with Number ──────────────────
  *
- * `backtestView` and `botView` (`trade/src/server.ts:829-845`) put every amount on the wire as a
+ * `backtestView` and `botView` (`trade/src/server.ts`) put every amount on the wire as a
  * decimal string, and the comment above them says why: "`JSON.stringify` **throws** on a bigint".
  * A position in a token's smallest units does not survive an IEEE 754 double. Shards are whole
- * units (100 Shards = 1 USD, `trade/src/money.ts:18`), so a Shard balance would survive one — but
+ * units (100 Shards = 1 USD, `trade/src/money.ts`), so a Shard balance would survive one — but
  * `qty` and `priceScaled` would not, and one rule is easier to keep than two.
  */
 import { api } from './api.ts'
 
 /* ══════════════════════════════ the catalogue ══════════════════════════════ */
 
-/** `trade/src/catalog.ts:19-29`. Ten rules, each of which is a branch in `compileSignals`. */
+/** `trade/src/catalog.ts`. Ten rules, each of which is a branch in `compileSignals`. */
 export const STRATEGY_IDS = [
   'buy_hold',
   'sma_cross',
@@ -88,7 +88,7 @@ export const STRATEGY_IDS = [
 
 export type StrategyId = (typeof STRATEGY_IDS)[number]
 
-/** `trade/src/catalog.ts:31-37`. */
+/** `trade/src/catalog.ts`. */
 export type StrategyFamily =
   | 'benchmark'
   | 'trend'
@@ -97,7 +97,7 @@ export type StrategyFamily =
   | 'volatility'
   | 'accumulation'
 
-/** `trade/src/catalog.ts:41-50`. Parameters are periods and levels — never amounts. */
+/** `trade/src/catalog.ts`. Parameters are periods and levels — never amounts. */
 export interface StrategyParamSpec {
   readonly key: string
   readonly label: string
@@ -110,10 +110,10 @@ export interface StrategyParamSpec {
 }
 
 /**
- * `trade/src/catalog.ts:52-60`.
+ * `trade/src/catalog.ts`.
  *
  * `weakness` is on every entry and is not optional upstream. The service's own comment at
- * `catalog.ts:57` says why: "Stated on every entry, deliberately. A catalogue that only lists
+ * `catalog.ts` says why: "Stated on every entry, deliberately. A catalogue that only lists
  * upsides is advertising." This app renders it beside the tagline, at the same weight, on every
  * card — not behind a disclosure.
  */
@@ -126,11 +126,11 @@ export interface Strategy {
   readonly params: readonly StrategyParamSpec[]
 }
 
-/** `trade/src/catalog.ts:245-254`. */
+/** `trade/src/catalog.ts`. */
 export const TIMEFRAMES = ['5m', '15m', '1h', '4h', '1d'] as const
 export type Timeframe = (typeof TIMEFRAMES)[number]
 
-/** `trade/src/series.ts:44-50`. A price series somebody has published bars for. */
+/** `trade/src/series.ts`. A price series somebody has published bars for. */
 export interface SeriesRecord {
   readonly id: string
   readonly symbol: string
@@ -141,14 +141,14 @@ export interface SeriesRecord {
 
 /* ══════════════════════════════ backtests ══════════════════════════════ */
 
-/** `trade/src/backtests.ts:38`. */
+/** `trade/src/backtests.ts`. */
 export type BacktestStatus = 'queued' | 'running' | 'complete' | 'failed'
 
 /**
- * The metrics document, as `serialiseResult` stores it (`trade/src/backtest.ts:269-274`).
+ * The metrics document, as `serialiseResult` stores it (`trade/src/backtest.ts`).
  *
  * Every `bigint` is canonicalised to a decimal STRING and every `number` stays a number — the
- * split is `trade/src/performance.ts:22-25`, and it is the fix for a bug that file records: the
+ * split is `trade/src/performance.ts`, and it is the fix for a bug that file records: the
  * frozen service reported profit factor in dollars for a while and "rendered as a profit factor of
  * 3067 next to ratios of 1.2". So:
  *
@@ -159,7 +159,7 @@ export type BacktestStatus = 'queued' | 'running' | 'complete' | 'failed'
  *     involve a square root and nobody is paid a Sharpe.
  *
  * `null` until the run completes: the column is written only by the `complete` branch
- * (`trade/src/backtests.ts:222`).
+ * (`trade/src/backtests.ts`).
  */
 export interface BacktestMetrics {
   readonly startEquity: string
@@ -184,13 +184,13 @@ export interface BacktestMetrics {
 }
 
 /**
- * One backtest, as `backtestView` puts it on the wire (`trade/src/server.ts:829-831`).
+ * One backtest, as `backtestView` puts it on the wire (`trade/src/server.ts`).
  *
  * ── What is NOT here, and this app must not pretend otherwise ─────────────────────────────────
  *
  * The run also writes a decimated equity curve and the full fill list, into the `equity` and
- * `trades` columns (`trade/src/backtests.ts:223-224`, declared at `trade/src/migrations.ts:207-208`).
- * **Neither is selected.** `COLUMNS` at `trade/src/backtests.ts:77-78` lists sixteen columns and
+ * `trades` columns (`trade/src/backtests.ts`, declared at `trade/src/migrations.ts`).
+ * **Neither is selected.** `COLUMNS` at `trade/src/backtests.ts` lists sixteen columns and
  * those two are not among them, so no route serves them and there is nothing for this bundle to
  * draw a curve from. Reported to micro-trade; the screen says the curve is not served rather than
  * drawing one from the summary, which would be a picture of numbers that were never measured.
@@ -216,9 +216,9 @@ export interface Backtest {
    * What was changed, and why the run may not be what was asked for.
    *
    * `normaliseParams` clamps a parameter into the catalogue's range and RETURNS the adjustment
-   * rather than applying it silently (`trade/src/catalog.ts:195-226`), the queue route puts those
-   * on the row (`trade/src/server.ts:516`), and the runner adds "this configuration produced no
-   * trades at all" and "the newest 20000 bars were used" (`trade/src/backtests.ts:208-215`). Every
+   * rather than applying it silently (`trade/src/catalog.ts`), the queue route puts those
+   * on the row (`trade/src/server.ts`), and the runner adds "this configuration produced no
+   * trades at all" and "the newest 20000 bars were used" (`trade/src/backtests.ts`). Every
    * one of them changes what the numbers mean, so this app renders them where the numbers are.
    */
   readonly notes: readonly string[]
@@ -227,11 +227,11 @@ export interface Backtest {
 
 /* ══════════════════════════════ bots ══════════════════════════════ */
 
-/** `trade/src/bots.ts:93-94`. */
+/** `trade/src/bots.ts`. */
 export type BotMode = 'paper' | 'live'
 export type BotStatus = 'draft' | 'running' | 'paused' | 'stopped' | 'errored'
 
-/** One bot, as `botView` puts it on the wire (`trade/src/server.ts:834-845`). */
+/** One bot, as `botView` puts it on the wire (`trade/src/server.ts`). */
 export interface Bot {
   readonly id: string
   readonly userId: string
@@ -252,7 +252,7 @@ export interface Bot {
    * The highest equity this bot has ever been billed at.
    *
    * The performance fee is assessed against this and never against the allocation, which is what
-   * stops the same climb being charged for twice — invariant 1 of `trade/src/fees.ts:26-30`.
+   * stops the same climb being charged for twice — invariant 1 of `trade/src/fees.ts`.
    */
   readonly highWaterMark: string
   readonly feeBps: number
@@ -264,19 +264,19 @@ export interface Bot {
    * Why the bot last did nothing.
    *
    * Carries `LIVE_DISABLED` when the deployment's kill switch is off underneath a live bot
-   * (`trade/src/bots.ts:85-87`), which the service surfaces on the row rather than only logging
+   * (`trade/src/bots.ts`), which the service surfaces on the row rather than only logging
    * "a live bot that has gone quiet because an operator pulled the switch is indistinguishable
    * from one whose rule simply has not fired".
    */
   readonly lastError: string | null
 }
 
-/** `trade/src/fills.ts:47-49`. */
+/** `trade/src/fills.ts`. */
 export type FillSide = 'buy' | 'sell'
 export type FillMode = 'paper' | 'live'
 export type FillStatus = 'planned' | 'settled' | 'refused' | 'unresolved'
 
-/** One fill, as `GET /v1/bots/:id/fills` renders it (`trade/src/server.ts:566-573`). */
+/** One fill, as `GET /v1/bots/:id/fills` renders it (`trade/src/server.ts`). */
 export interface Fill {
   readonly id: string
   readonly botId: string
@@ -284,13 +284,13 @@ export interface Fill {
   readonly barT: number
   readonly side: FillSide
   readonly mode: FillMode
-  /** USD per whole unit at 10^6 scale, as a decimal string (`trade/src/money.ts:22`). */
+  /** USD per whole unit at 10^6 scale, as a decimal string (`trade/src/money.ts`). */
   readonly priceScaled: string
-  /** The same price as a human decimal, computed by the service (`trade/src/money.ts:202-207`). */
+  /** The same price as a human decimal, computed by the service (`trade/src/money.ts`). */
   readonly price: string
   /** Base-asset smallest units. */
   readonly qty: string
-  /** Shards moved, SIGNED: negative on a buy, positive on a sell (`trade/src/fills.ts:60-61`). */
+  /** Shards moved, SIGNED: negative on a buy, positive on a sell (`trade/src/fills.ts`). */
   readonly shards: string
   readonly feeShards: string
   readonly reason: string
@@ -299,10 +299,10 @@ export interface Fill {
   readonly error: string | null
 }
 
-/** `trade/src/fees.ts:102`. */
+/** `trade/src/fees.ts`. */
 export type SettlementStatus = 'pending' | 'charged' | 'partial' | 'uncollectable'
 
-/** One fee settlement (`trade/src/server.ts:584-593`; the record is `trade/src/fees.ts:104-117`). */
+/** One fee settlement (`trade/src/server.ts`; the record is `trade/src/fees.ts`). */
 export interface Settlement {
   readonly id: string
   readonly botId: string
@@ -325,7 +325,7 @@ export interface Settlement {
  * One point on the equity curve, as it arrives.
  *
  * Money is a decimal STRING, never a number: `canonicalise` writes every bigint as a quoted string
- * (`trade/src/idempotency.ts:94`), and parsing one back into a JS number would silently round it
+ * (`trade/src/idempotency.ts`), and parsing one back into a JS number would silently round it
  * above 2^53. The chart scales these with BigInt arithmetic and only ever divides for pixels.
  *
  * `hold` is what buy-and-hold would have been worth over the same bars, which is the only
@@ -361,7 +361,7 @@ export interface TradeCapabilities {
 
 /* ══════════════════════════════ the calls ══════════════════════════════ */
 /**
- * `GET /v1/backtests/:id/result` — `trade/src/server.ts:453`.
+ * `GET /v1/backtests/:id/result` — `trade/src/server.ts`.
  *
  * The equity curve and the fill list. Separate from the summary at `:427` because an equity curve
  * is decimated to a few hundred points and a fill list is unbounded: putting both into the list
@@ -383,7 +383,7 @@ export function getBacktestResult(
 }
 
 /**
- * `GET /v1/capabilities` — `trade/src/server.ts:367`.
+ * `GET /v1/capabilities` — `trade/src/server.ts`.
  *
  * **Makes no `authenticate()` call**, like the catalogue: whether this deployment offers live
  * trading is a property of the deployment, not of the caller. Sent with `auth: false`.
@@ -402,10 +402,10 @@ export function getCapabilities(signal?: AbortSignal): Promise<{ capabilities: T
 
 
 /**
- * `GET /v1/strategies` — `trade/src/server.ts:348`.
+ * `GET /v1/strategies` — `trade/src/server.ts`.
  *
  * **Makes no `authenticate()` call.** The handler is a one-line body with no principal in it, and
- * the comment above it (`trade/src/server.ts:347-348`) says why: "It is a product surface — the
+ * the comment above it (`trade/src/server.ts`) says why: "It is a product surface — the
  * thing a prospective user reads before signing up — and gating it behind a token would make the
  * marketing page unable to render it."
  *
@@ -420,22 +420,22 @@ export function getStrategies(signal?: AbortSignal): Promise<{ strategies: reado
 }
 
 /**
- * `GET /v1/series` — `trade/src/server.ts:379`.
+ * `GET /v1/series` — `trade/src/server.ts`.
  *
  * Authenticates (`:337`) and then lists EVERY series, not the caller's — there is no per-user
  * filter, because a series is estate data rather than customer data (`listSeries`,
- * `trade/src/series.ts:119-124`). Ordered by symbol then timeframe by the service.
+ * `trade/src/series.ts`). Ordered by symbol then timeframe by the service.
  */
 export function getSeries(signal?: AbortSignal): Promise<{ series: readonly SeriesRecord[] }> {
   return api<{ series: readonly SeriesRecord[] }>('/v1/series', { ...(signal ? { signal } : {}) })
 }
 
 /**
- * `GET /v1/backtests` — `trade/src/server.ts:425`.
+ * `GET /v1/backtests` — `trade/src/server.ts`.
  *
- * At most 100, newest first (`trade/src/server.ts:430`). The `userId` query parameter is
+ * At most 100, newest first (`trade/src/server.ts`). The `userId` query parameter is
  * deliberately NOT exposed: `ownerOf` honours it only for an admin principal and otherwise passes
- * it through `subjectUserId`, which refuses a mismatch (`trade/src/server.ts:800-806`) — so from
+ * it through `subjectUserId`, which refuses a mismatch (`trade/src/server.ts`) — so from
  * this bundle it can only ever be the caller's own id or a 403. Offering it would put an
  * act-as-anyone-shaped control in a customer app for no reachable behaviour.
  */
@@ -444,10 +444,10 @@ export function listBacktests(signal?: AbortSignal): Promise<{ backtests: readon
 }
 
 /**
- * `GET /v1/backtests/:id` — `trade/src/server.ts:433`.
+ * `GET /v1/backtests/:id` — `trade/src/server.ts`.
  *
  * The status URL the 202 points at. A malformed id is a 400 (`uuidParam`,
- * `trade/src/server.ts:857-861`) and another customer's id is a **404**, not a 403
+ * `trade/src/server.ts`) and another customer's id is a **404**, not a 403
  * (`getOwnedBacktest` filters on `user_id`, and `:395` turns a null into `not found`) — the same
  * answer as "no such run", so ids cannot be enumerated.
  */
@@ -458,15 +458,15 @@ export function getBacktest(id: string, signal?: AbortSignal): Promise<{ backtes
 }
 
 /**
- * `POST /v1/backtests` — `trade/src/server.ts:470`.
+ * `POST /v1/backtests` — `trade/src/server.ts`.
  *
  * **202 AND A STATUS URL. THE RUN HAS NOT HAPPENED YET.** The handler validates, claims an
  * idempotency key, writes a `queued` row and enqueues a job AFTER the claim commits
- * (`trade/src/server.ts:525-536`, and the reason is in the comment there: a job enqueued inside
+ * (`trade/src/server.ts`, and the reason is in the comment there: a job enqueued inside
  * the transaction would be visible to a worker before the row it names). The reply is 202 with a
  * `location` header and a `statusUrl` in the body (`:468-472`).
  *
- * `trade/src/backtests.ts:4-20` argues the case at length. The frozen service ran the backtest
+ * `trade/src/backtests.ts` argues the case at length. The frozen service ran the backtest
  * inside the POST; a SIGTERM mid-run left a row marked `queued` that nothing would ever finish.
  *
  * So this client never renders a result because this call returned successfully. It renders
@@ -476,19 +476,19 @@ export interface CreateBacktestInput {
   readonly seriesId: string
   readonly strategyId: StrategyId
   readonly params?: Readonly<Record<string, number>>
-  /** Whole Shards, as a decimal string. Must be positive (`trade/src/server.ts:486`). */
+  /** Whole Shards, as a decimal string. Must be positive (`trade/src/server.ts`). */
   readonly startCash: string
   /**
-   * Basis points, 0–5000 (`readBps`, `trade/src/server.ts:899-906`).
+   * Basis points, 0–5000 (`readBps`, `trade/src/server.ts`).
    *
-   * **Defaulted by the service to 10 and 5, not to zero** (`trade/src/server.ts:487-488`). The
+   * **Defaulted by the service to 10 and 5, not to zero** (`trade/src/server.ts`). The
    * form sends them explicitly so the number on screen is the number that was charged.
    */
   readonly feeBps?: number
   readonly slippageBps?: number
   /**
    * 0–4294967295. **Defaulted to 0 rather than randomised**, deliberately: `readSeed`
-   * (`trade/src/server.ts:908-922`) says a random default "would make an omitted seed produce a
+   * (`trade/src/server.ts`) says a random default "would make an omitted seed produce a
    * run nobody can reproduce, which is the exact property this service promises not to have".
    */
   readonly seed?: number
@@ -497,9 +497,9 @@ export interface CreateBacktestInput {
 export interface BacktestQueued {
   readonly backtestId: string
   readonly status: BacktestStatus
-  /** Named in the BODY as well as the `location` header — `trade/src/server.ts:543`. */
+  /** Named in the BODY as well as the `location` header — `trade/src/server.ts`. */
   readonly statusUrl: string
-  /** The clamps `normaliseParams` applied, if any. `trade/src/server.ts:543`. */
+  /** The clamps `normaliseParams` applied, if any. `trade/src/server.ts`. */
   readonly notes: readonly string[]
 }
 
@@ -515,9 +515,9 @@ export function createBacktest(
 }
 
 /**
- * `GET /v1/bots` — `trade/src/server.ts:546`.
+ * `GET /v1/bots` — `trade/src/server.ts`.
  *
- * At most 100, newest first (`trade/src/server.ts:551`). Same `userId` reasoning as the backtest
+ * At most 100, newest first (`trade/src/server.ts`). Same `userId` reasoning as the backtest
  * list: not exposed.
  */
 export function listBots(signal?: AbortSignal): Promise<{ bots: readonly Bot[] }> {
@@ -525,23 +525,23 @@ export function listBots(signal?: AbortSignal): Promise<{ bots: readonly Bot[] }
 }
 
 /**
- * `GET /v1/bots/:id` — `trade/src/server.ts:554`.
+ * `GET /v1/bots/:id` — `trade/src/server.ts`.
  *
- * Authenticates through `ownedBot` (`trade/src/server.ts:808-819`), which calls `authenticate` at
+ * Authenticates through `ownedBot` (`trade/src/server.ts`), which calls `authenticate` at
  * `:741` and answers **404** for a bot that is not the caller's (`:744-745`).
  */
 export function getBot(id: string, signal?: AbortSignal): Promise<{ bot: Bot }> {
   return api<{ bot: Bot }>(`/v1/bots/${encodeURIComponent(id)}`, { ...(signal ? { signal } : {}) })
 }
 
-/** `GET /v1/bots/:id/fills` — `trade/src/server.ts:559`. At most 200, newest first. */
+/** `GET /v1/bots/:id/fills` — `trade/src/server.ts`. At most 200, newest first. */
 export function listFills(id: string, signal?: AbortSignal): Promise<{ fills: readonly Fill[] }> {
   return api<{ fills: readonly Fill[] }>(`/v1/bots/${encodeURIComponent(id)}/fills`, {
     ...(signal ? { signal } : {}),
   })
 }
 
-/** `GET /v1/bots/:id/settlements` — `trade/src/server.ts:577`. At most 200, newest first. */
+/** `GET /v1/bots/:id/settlements` — `trade/src/server.ts`. At most 200, newest first. */
 export function listSettlements(
   id: string,
   signal?: AbortSignal,
@@ -553,23 +553,23 @@ export function listSettlements(
 }
 
 /**
- * `POST /v1/bots` — `trade/src/server.ts:597`.
+ * `POST /v1/bots` — `trade/src/server.ts`.
  *
  * Creates a bot in `draft`. It reserves nothing and trades nothing — that is what `start` does.
- * **201 fresh, 200 on a replay** (`trade/src/server.ts:647`).
+ * **201 fresh, 200 on a replay** (`trade/src/server.ts`).
  */
 export interface CreateBotInput {
-  /** 1–120 characters (`requireString`, `trade/src/server.ts:604`). */
+  /** 1–120 characters (`requireString`, `trade/src/server.ts`). */
   readonly name: string
   readonly mode: BotMode
   readonly seriesId: string
   readonly strategyId: StrategyId
   readonly params?: Readonly<Record<string, number>>
-  /** Whole Shards, as a decimal string. Must be positive (`trade/src/server.ts:614`). */
+  /** Whole Shards, as a decimal string. Must be positive (`trade/src/server.ts`). */
   readonly allocation: string
   /**
    * The performance fee, in basis points. **The service defaults it to 1500 — fifteen per cent**
-   * (`trade/src/server.ts:615`), charged on gains above the high-water mark and on nothing else.
+   * (`trade/src/server.ts`), charged on gains above the high-water mark and on nothing else.
    * Sent explicitly, so the number the form showed is the number the row carries.
    */
   readonly feeBps?: number
@@ -584,7 +584,7 @@ export function createBot(idempotencyKey: string, input: CreateBotInput): Promis
 }
 
 /**
- * `POST /v1/bots/:id/actions` — `trade/src/server.ts:657`.
+ * `POST /v1/bots/:id/actions` — `trade/src/server.ts`.
  *
  * One route with an `action` rather than three, and the service says why (`:578-585`): the three
  * share their whole precondition set, and "the idempotency key is required here too: `start`
@@ -592,16 +592,16 @@ export function createBot(idempotencyKey: string, input: CreateBotInput): Promis
  * reservation."
  *
  * The three refusals this app has to render, each a **409 `bot_state`**
- * (`BotStateError` → `trade/src/server.ts:281-283`):
+ * (`BotStateError` → `trade/src/server.ts`):
  *
  *   * `start` on a `stopped` bot — "a stopped bot cannot be restarted — create a new one"
- *     (`trade/src/bots.ts:561`). Stop is terminal.
+ *     (`trade/src/bots.ts`). Stop is terminal.
  *   * `start` on a `live` bot while the deployment's kill switch is off
- *     (`trade/src/bots.ts:562-564`, the switch is `TRADE_LIVE_ENABLED`, **default false**,
- *     `trade/src/env.ts:181`).
- *   * `pause` on anything that is not `running` (`trade/src/bots.ts:611`).
+ *     (`trade/src/bots.ts`, the switch is `TRADE_LIVE_ENABLED`, **default false**,
+ *     `trade/src/env.ts`).
+ *   * `pause` on anything that is not `running` (`trade/src/bots.ts`).
  *
- * `stop` may answer with `deferred` set (`trade/src/server.ts:700-705`), which means the final fee
+ * `stop` may answer with `deferred` set (`trade/src/server.ts`), which means the final fee
  * settlement could not be assessed on this pass and is owed. It is rendered, not swallowed.
  */
 export type BotAction = 'start' | 'pause' | 'stop'

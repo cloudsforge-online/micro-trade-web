@@ -8,7 +8,7 @@
  *
  * The second thing under test is the dev-port disagreement, asserted as a FACT rather than fixed
  * with a literal: the registry gives `trade` 4006 and the trade service binds 4000
- * (`trade/src/env.ts:166`, `trade/.env.example:44`). See the header of src/lib/hosts.ts.
+ * (`trade/src/env.ts`, `trade/.env.example:44`). See the header of src/lib/hosts.ts.
  */
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'

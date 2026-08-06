@@ -8,13 +8,13 @@
  * ── Why `busy` is not merely cosmetic here ────────────────────────────────────────────────────
  *
  * Two of this app's three writes commit something that cannot be taken back. `POST /v1/bots`
- * creates a bot with an allocation (`trade/src/server.ts:598`), and `POST /v1/bots/:id/actions`
+ * creates a bot with an allocation (`trade/src/server.ts`), and `POST /v1/bots/:id/actions`
  * with `action: "start"` **reserves that allocation at the ledger** before the status changes
- * (`trade/src/bots.ts:566-579`) — a real hold on a real balance. `POST /v1/backtests` spends no
- * money but does queue a job (`trade/src/server.ts:529-534`).
+ * (`trade/src/bots.ts`) — a real hold on a real balance. `POST /v1/backtests` spends no
+ * money but does queue a job (`trade/src/server.ts`).
  *
  * Unlike mint, trade does not rely on a state machine to make a double click survivable: it
- * requires an `Idempotency-Key` on all three (`trade/src/server.ts:847-855`). That header is what
+ * requires an `Idempotency-Key` on all three (`trade/src/server.ts`). That header is what
  * makes a RETRY safe. It is not what makes a double click safe, because the second click of a
  * double click is a new intent as far as this bundle is concerned — so the hook still refuses to
  * start a second run while one is in flight, and the buttons read the same flag so they are
@@ -125,7 +125,7 @@ export function useMutation<A extends unknown[], T>(
  *     in `src/lib/idempotency.ts`);
  *   * the attempt ends with the outcome KNOWN, success or refusal alike → drop it, so the next
  *     intent is a new one and an edited payload cannot collide with the old fingerprint
- *     (`trade/src/idempotency.ts:151`).
+ *     (`trade/src/idempotency.ts`).
  *
  * `reset()` drops the key too: it is what a screen calls when the user abandons the attempt.
  */
@@ -142,7 +142,7 @@ export function useIdempotentMutation<A extends unknown[], T>(
   // And the latch is a ref for the same reason the key is. The key alone made a same-tick double
   // submit SURVIVABLE rather than harmless: both requests carried it, so the service recognised
   // the second as the same intent — and answered it 409 `idempotency_in_flight`
-  // (`trade/src/idempotency.ts:150`, mapped at `trade/src/server.ts:278-280`). `keepKeyAfter`
+  // (`trade/src/idempotency.ts`, mapped at `trade/src/server.ts`). `keepKeyAfter`
   // returns true for that code, `setError` fired, and whichever promise settled last won. The
   // customer's bot started and the screen told them it had not. A component that lies about an
   // outcome is not made acceptable by the outcome being correct underneath.

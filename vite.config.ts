@@ -41,8 +41,8 @@ export default defineConfig({
   // the same distinction admin-web had to draw when its entry said 3002 and admin-api bound 4014,
   // and mint-web after it.
   //
-  // `trade` says devPort **4006** (`ui/packages/ui/src/surfaces.ts:206`). The `trade` service
-  // binds **4000**: `trade/src/env.ts:166` defaults `PORT` to 4000 and `trade/.env.example:44`
+  // `trade` says devPort **4006** (`ui/packages/ui/src/surfaces.ts`). The `trade` service
+  // binds **4000**: `trade/src/env.ts` defaults `PORT` to 4000 and `trade/.env.example:44`
   // sets it to 4000. So under `pnpm dev` this app resolves `http://localhost:4006` and trade, run
   // with its own example environment, is not there. That is NOT papered over with a literal port
   // here — a hard-coded host is a second, unversioned copy of the registry and the copy is the

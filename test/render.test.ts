@@ -10,10 +10,10 @@
  * THE PRODUCT'S TWO CLAIMS, EACH ENFORCED
  *
  * **1. Fees and slippage are charged.** The service defaults a backtest to 10 bps of fee and 5 of
- * slippage rather than to zero (`trade/src/server.ts:487-488`), and paper trading is charged the
- * same (`trade/src/bots.ts:81-82`) — because the frozen version booked a zero fee in paper mode
+ * slippage rather than to zero (`trade/src/server.ts`), and paper trading is charged the
+ * same (`trade/src/bots.ts`) — because the frozen version booked a zero fee in paper mode
  * and "a paper bot beat the backtest of its own rule every time, which is the single comparison
- * this product exists to let somebody make" (`trade/src/bots.ts:73-80`). A UI that hid the charge,
+ * this product exists to let somebody make" (`trade/src/bots.ts`). A UI that hid the charge,
  * or offered paper as "free practice", would undo that in the one place a customer looks.
  *
  * **2. Nothing here implies a return is expected.** Every figure a backtest produces describes a
@@ -122,7 +122,7 @@ describe('a modelled number says so, on the surface where it is shown', () => {
   })
 
   it('a run that has not completed renders a dash rather than a zero', () => {
-    // `metrics` is null until the run completes — trade/src/backtests.ts:222 writes the column only
+    // `metrics` is null until the run completes — trade/src/backtests.ts writes the column only
     // on the complete branch. A zero there is a claim about a run that has not happened.
     const list = read('src/pages/backtests.tsx')
     assert.match(list, /run\.metrics \? percent\(run\.metrics\.totalReturnBps\) : '—'/)
@@ -164,7 +164,7 @@ describe('fees and slippage are visible, because that is the product', () => {
   })
 
   it('paper is never described as free', () => {
-    // The one sentence that would undo `trade/src/bots.ts:73-80`.
+    // The one sentence that would undo `trade/src/bots.ts`.
     for (const page of PAGES) {
       const source = rendered(`src/pages/${page}`)
       assert.doesNotMatch(source, /paper (?:is|trading is) free/i, `${page} calls paper free`)
@@ -207,7 +207,7 @@ describe('this is not an exchange, and the vocabulary stays out', () => {
 
 describe('the catalogue states what each rule gets wrong', () => {
   it('a strategy card cannot be drawn without its weakness', () => {
-    // `weakness` is required on every catalogue entry upstream (trade/src/catalog.ts:52-60), and
+    // `weakness` is required on every catalogue entry upstream (trade/src/catalog.ts), and
     // the service's comment says why: "A catalogue that only lists upsides is advertising."
     const source = read('src/pages/strategies.tsx')
     assert.match(source, /strategy\.weakness/)
@@ -224,7 +224,7 @@ describe('the catalogue states what each rule gets wrong', () => {
 
 describe('the refusals the service owns are rendered, not pre-empted', () => {
   it('the bot page hides the start button only for the state that is genuinely terminal', () => {
-    // `stopped` is refused outright by startBot (trade/src/bots.ts:561) — a button there could
+    // `stopped` is refused outright by startBot (trade/src/bots.ts) — a button there could
     // only ever 409. Every other refusal is rendered when it happens, because this bundle cannot
     // know it in advance.
     const source = read('src/pages/bot.tsx')
@@ -232,9 +232,9 @@ describe('the refusals the service owns are rendered, not pre-empted', () => {
   })
 
   it('the live kill switch is asked about, not guessed at, and unknown is not treated as on', () => {
-    // TRADE_LIVE_ENABLED defaults to false (trade/src/env.ts:181) and is read per tick. This page
+    // TRADE_LIVE_ENABLED defaults to false (trade/src/env.ts) and is read per tick. This page
     // USED to say it could not check, because no route reported it; GET /v1/capabilities
-    // (trade/src/server.ts:368) now does, so the check is that it actually asks — and, more
+    // (trade/src/server.ts) now does, so the check is that it actually asks — and, more
     // importantly, that it distinguishes "switched off" from "could not tell".
     //
     // Hiding the live option entirely is still wrong: on a deployment where live is ON, that would

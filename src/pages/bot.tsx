@@ -1,31 +1,31 @@
 /**
  * One bot: its position, its fills, its fee settlements, and the three actions.
  *
- * Four routes, all owner-scoped through `ownedBot` (`trade/src/server.ts:808-819`), which
+ * Four routes, all owner-scoped through `ownedBot` (`trade/src/server.ts`), which
  * authenticates at `:741` and answers **404** for somebody else's bot:
  *
- *   * `GET  /v1/bots/:id`             — `trade/src/server.ts:555`
- *   * `GET  /v1/bots/:id/fills`       — `trade/src/server.ts:560`
- *   * `GET  /v1/bots/:id/settlements` — `trade/src/server.ts:578`
- *   * `POST /v1/bots/:id/actions`     — `trade/src/server.ts:658`, Idempotency-Key required
+ *   * `GET  /v1/bots/:id`             — `trade/src/server.ts`
+ *   * `GET  /v1/bots/:id/fills`       — `trade/src/server.ts`
+ *   * `GET  /v1/bots/:id/settlements` — `trade/src/server.ts`
+ *   * `POST /v1/bots/:id/actions`     — `trade/src/server.ts`, Idempotency-Key required
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * THE THREE REFUSALS THIS SCREEN HAS TO RENDER RATHER THAN PREVENT
  *
- * Each is a 409 `bot_state` (`BotStateError`, mapped at `trade/src/server.ts:281-283`):
+ * Each is a 409 `bot_state` (`BotStateError`, mapped at `trade/src/server.ts`):
  *
- *   1. **A stopped bot cannot be restarted** — `trade/src/bots.ts:561`. Stop is terminal, so the
+ *   1. **A stopped bot cannot be restarted** — `trade/src/bots.ts`. Stop is terminal, so the
  *      start button is not offered on a stopped bot and the page says why instead of leaving a
  *      button that always fails.
  *   2. **A live bot cannot start while the deployment's kill switch is off** —
- *      `trade/src/bots.ts:562-564`. `TRADE_LIVE_ENABLED` defaults to false (`trade/src/env.ts:181`)
+ *      `trade/src/bots.ts`. `TRADE_LIVE_ENABLED` defaults to false (`trade/src/env.ts`)
  *      and no route reports it, so this page CANNOT know in advance. The button is offered and the
  *      refusal is rendered in full. Guessing would be worse: a client that hid the button on a
  *      deployment where live was on would have removed a feature nobody could file a bug against.
- *   3. **Only a running bot can be paused** — `trade/src/bots.ts:611`.
+ *   3. **Only a running bot can be paused** — `trade/src/bots.ts`.
  *
  * Pause is **not a flatten**, and the page says so: the position stays open by design
- * (`trade/src/bots.ts:602-608`), and a paused bot's equity is a mark from whenever it last ticked
+ * (`trade/src/bots.ts`), and a paused bot's equity is a mark from whenever it last ticked
  * against a position that may be worth anything by now.
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  */
@@ -104,7 +104,7 @@ export function BotPage() {
       </p>
 
       {/*
-        The kill switch, surfaced on the row rather than only logged. `trade/src/bots.ts:84-87`:
+        The kill switch, surfaced on the row rather than only logged. `trade/src/bots.ts`:
         "a live bot that has gone quiet because an operator pulled the switch is indistinguishable
         from one whose rule simply has not fired".
       */}
@@ -201,7 +201,7 @@ export function BotPage() {
                   <td>
                     <StateBadge tone={fillTone(fill.status)} />
                   </td>
-                  {/* The service formats the price itself (`trade/src/money.ts:196-207`); this
+                  {/* The service formats the price itself (`trade/src/money.ts`); this
                       bundle never divides a scaled integer by a power of ten in a float. */}
                   <td className="cf-num">{fill.price}</td>
                   <td className="cf-num">{shards(fill.qty)}</td>
@@ -286,7 +286,7 @@ function Actions({
   error: string | null
   onRun: (action: BotAction) => void
 }) {
-  // `stopped` is terminal — `startBot` refuses it outright (`trade/src/bots.ts:561`). Offering a
+  // `stopped` is terminal — `startBot` refuses it outright (`trade/src/bots.ts`). Offering a
   // button that can only 409 teaches a customer that the product is unreliable.
   const terminal = bot.status === 'stopped'
   const canPause = bot.status === 'running'

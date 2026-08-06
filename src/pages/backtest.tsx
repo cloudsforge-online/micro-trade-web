@@ -1,7 +1,7 @@
 /**
  * One backtest: the status page a 202 points at, and the report once it completes.
  *
- * `GET /v1/backtests/:id` — `trade/src/server.ts:434`. A malformed id is a 400 and another
+ * `GET /v1/backtests/:id` — `trade/src/server.ts`. A malformed id is a 400 and another
  * customer's id is a **404**, the same answer as "no such run", so ids cannot be enumerated.
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
@@ -12,8 +12,8 @@
  * number, and `test/render.test.ts` requires it.
  *
  * **2. It may not draw an equity curve.** The run computes one and stores it, in the `equity`
- * column (`trade/src/backtests.ts:228`, declared at `trade/src/migrations.ts:208`) — and no route
- * serves it. `COLUMNS` at `trade/src/backtests.ts:77-78` selects sixteen columns and neither
+ * column (`trade/src/backtests.ts`, declared at `trade/src/migrations.ts`) — and no route
+ * serves it. `COLUMNS` at `trade/src/backtests.ts` selects sixteen columns and neither
  * `equity` nor `trades` is among them. A curve interpolated from `startEquity` and `endEquity`
  * would be a picture of two numbers pretending to be a hundred. So the page says the curve is not
  * served, and the gap is reported to micro-trade rather than papered over.
@@ -21,12 +21,12 @@
  * **3. It may not print a profit factor of 0.00× for a run that never lost.** Zero is the
  * SENTINEL for "gross loss was zero", because JSON cannot carry Infinity — the service says so at
  * the `profitFactorBps` line and adds that "a reader tells the two cases apart with `losses`"
- * (`trade/src/performance.ts:200-204`). `profitFactor()` in src/lib/format.ts is that reading.
+ * (`trade/src/performance.ts`). `profitFactor()` in src/lib/format.ts is that reading.
  *
  * **4. It may not hide the notes.** `normaliseParams` clamps a parameter and RETURNS the
- * adjustment rather than applying it silently (`trade/src/catalog.ts:195-226`), and the runner
+ * adjustment rather than applying it silently (`trade/src/catalog.ts`), and the runner
  * adds "this configuration produced no trades at all" and "the newest 20000 bars were used"
- * (`trade/src/backtests.ts:208-215`). Each changes what the numbers mean, so they render above
+ * (`trade/src/backtests.ts`). Each changes what the numbers mean, so they render above
  * them.
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  */

@@ -133,14 +133,14 @@ describe('the stylesheet names only tokens that exist', () => {
        * system that had got BETTER.
        *
        * The point it was making is not lost, it is sharpened. `--cf-critical` is now a real token
-       * and it is the NON-TEXT one: `ui/packages/ui/src/tokens.css:360-361` measures it at 3.38:1,
+       * and it is the NON-TEXT one: `ui/packages/ui/src/tokens.css` measures it at 3.38:1,
        * which clears the 3:1 floor a border or a fill needs and misses the 4.5:1 a word needs.
        * `--cf-critical-text` is the text step, at 4.63:1. So the rule for this stylesheet is
        * unchanged in practice — `color:` never takes `--cf-critical` — and it is now a rule about
        * WHICH step rather than about whether the name exists.
        *
        * `--cf-danger` is what this file actually uses, and it is an alias of `--cf-critical-text`
-       * (`ui/packages/ui/src/tokens.css:391`), which is why every `color: var(--cf-danger)` below
+       * (`ui/packages/ui/src/tokens.css`), which is why every `color: var(--cf-danger)` below
        * was already the compliant one.
        */
       for (const pair of ['--cf-critical', '--cf-critical-text', '--cf-warn', '--cf-warn-text']) {

@@ -128,7 +128,7 @@ test('public/ holds no stray brand asset that nothing links', () => {
 
 test('the accent and substrate are declared on <html>, before React can paint', () => {
   // Set by React, the page paints the default ember and then changes colour. `trade` has its own
-  // block in tokens.css (`ui/packages/ui/src/tokens.css:348`); admin's did not, and the console
+  // block in tokens.css (`ui/packages/ui/src/tokens.css`); admin's did not, and the console
   // wore the company's colour by accident for as long as that was true.
   assert.match(HTML, /data-cf-product="trade"/)
   assert.match(HTML, /data-cf-substrate="warm"/)
