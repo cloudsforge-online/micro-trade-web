@@ -13,18 +13,60 @@
 
   'warm' is the ash ramp the brand marks in brand/assets/trade/ are drawn on, and the one every
   other product frontend in the estate uses.
+
+  data-cf-scheme is the third of the three, added with @cloudsforge/ui 1.1. `auto` follows the
+  reader's operating system; `light` and `dark` force one. It is set here, statically, for exactly
+  the reason the other two are — an attribute that lands after the first paint is a colour change
+  the reader watches happen, and a theme flash is worse than a theme nobody asked for.
+
+  This surface never carried a light mode of its own, so there is nothing here to delete: the light
+  scheme arrives entirely from the design system, where the contrast of every pair is measured on
+  both schemes rather than on the one this repository happened to check.
 -->
-<html lang="en-GB" data-cf-product="trade" data-cf-substrate="warm">
+<html lang="en-GB" data-cf-product="trade" data-cf-substrate="warm" data-cf-scheme="auto">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="colour-scheme" content="dark" />
+    <!--
+      `color-scheme`, spelled the way the standard spells it, and declaring BOTH.
+
+      This file used to say `colour-scheme`, which is not a metadata name any browser knows: it was
+      inert, and the page got the user-agent default rather than the dark one it asked for. The
+      value is `dark light` rather than `dark` because the token layer now switches both — this tag
+      tells the browser which form controls and scrollbars to draw, `data-cf-scheme` on <html> tells
+      @cloudsforge/ui which palette to resolve, and declaring only `dark` would leave a reader in a
+      light environment fighting the page rather than being served by it.
+    -->
+    <meta name="color-scheme" content="dark light" />
     <!--
       The build that produced this bundle. Stamped by the Dockerfile, read by src/lib/obs.ts, and
       the reason an error report can be pinned to the deploy that introduced it. It is an identity
       rather than a configuration: it names the artefact, it does not tell it where it is running.
     -->
     <meta name="cf-release" content="dev" />
+
+    <!--
+      THE GOOGLE ANALYTICS MEASUREMENT ID, AND NOT THE GOOGLE ANALYTICS TAG.
+      ────────────────────────────────────────────────────────────────────────────────────────
+      There is deliberately no loader script for Google's tag anywhere in this file, and there must
+      never be one. (Its host and its global function are not written out here either, so that a
+      grep for either over this file answers zero — the same countermeasure the no-build-time-config
+      test uses on itself.) The stock snippet fetches a third-party script and sets `_ga` on
+      load — before any banner has been drawn, let alone answered — and under ePrivacy Art. 5(3) an
+      analytics cookie set before consent is a violation that a banner underneath it does not cure.
+      `@cloudsforge/ui/consent` injects the tag from exactly one place: the Accept button. See the
+      header of that module for the whole argument. This estate is separately under GDPR review and
+      custodies other people's money, which makes "tidy the analytics later" the wrong order.
+
+      It is a meta tag rather than a build-time constant because
+      test/no-build-time-config.test.ts greps for those and fails the build — an artefact with an
+      environment frozen into it is not the artefact that passed CI. (That test greps this file
+      too, which is why the prefix is not spelled out here.) It is the same mechanism `cf-release`
+      above already uses, and the ID is an identity rather than a configuration: it names the
+      property, it does not tell the bundle where it is running. An absent or empty value means
+      analytics is simply off, which is what a local `pnpm dev` gets.
+    -->
+    <meta name="cf-analytics" content="G-NB8DNLTKZQ" />
 
     <!--
       The description says what the product is AND what it is not, in the same sentence, because

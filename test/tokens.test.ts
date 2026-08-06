@@ -106,9 +106,9 @@ describe('the stylesheet names only tokens that exist', () => {
       }
     })
 
-    it('the four names the brief warned about are not tokens, and the real ones are', () => {
+    it('the names the brief warned about are not tokens, and the real ones are', () => {
       // Asserted in both directions so a reader can see which is which without opening tokens.css.
-      for (const wrong of ['--cf-border', '--cf-critical', '--cf-warning', '--cf-font']) {
+      for (const wrong of ['--cf-border', '--cf-warning', '--cf-font']) {
         assert.ok(!defined.has(wrong), `${wrong} is defined after all; this comment is wrong`)
       }
       for (const right of [
@@ -119,6 +119,44 @@ describe('the stylesheet names only tokens that exist', () => {
         '--cf-font-sans',
       ]) {
         assert.ok(defined.has(right), `${right} is not defined; the stylesheet is built on it`)
+      }
+    })
+
+    it('--cf-critical exists NOW, and it is still the wrong name to set text from', () => {
+      /*
+       * ── THE REVISION THE NEIGHBOURING COMMENT ANTICIPATED ────────────────────────────────────
+       *
+       * `--cf-critical` was on the wrong-names list above until @cloudsforge/ui 1.1, and the list
+       * three assertions up says what to do when one of these appears upstream: "if one had
+       * appeared upstream, this list would need revising rather than enforcing." It has, so it
+       * has been. Enforcing the old assertion would have meant a red suite reporting a design
+       * system that had got BETTER.
+       *
+       * The point it was making is not lost, it is sharpened. `--cf-critical` is now a real token
+       * and it is the NON-TEXT one: `ui/packages/ui/src/tokens.css:360-361` measures it at 3.38:1,
+       * which clears the 3:1 floor a border or a fill needs and misses the 4.5:1 a word needs.
+       * `--cf-critical-text` is the text step, at 4.63:1. So the rule for this stylesheet is
+       * unchanged in practice — `color:` never takes `--cf-critical` — and it is now a rule about
+       * WHICH step rather than about whether the name exists.
+       *
+       * `--cf-danger` is what this file actually uses, and it is an alias of `--cf-critical-text`
+       * (`ui/packages/ui/src/tokens.css:391`), which is why every `color: var(--cf-danger)` below
+       * was already the compliant one.
+       */
+      for (const pair of ['--cf-critical', '--cf-critical-text', '--cf-warn', '--cf-warn-text']) {
+        assert.ok(defined.has(pair), `${pair} is not defined; the severity pairs are incomplete`)
+      }
+      // The leading boundary is load-bearing: without it `border-color` and `background-color`
+      // match too, and this would fail the badge's border — which is the one place the non-text
+      // step is exactly right.
+      const textColours = [
+        ...CSS.matchAll(/(?:^|[;{\s])color\s*:\s*var\((--cf-[a-z0-9-]+)\)/g),
+      ].map((m) => m[1] ?? '')
+      for (const name of ['--cf-critical', '--cf-warn']) {
+        assert.ok(
+          !textColours.includes(name),
+          `src/styles.css sets color: var(${name}); that is the non-text step — use ${name}-text`,
+        )
       }
     })
   }
