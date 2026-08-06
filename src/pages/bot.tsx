@@ -2,7 +2,7 @@
  * One bot: its position, its fills, its fee settlements, and the three actions.
  *
  * Four routes, all owner-scoped through `ownedBot` (`trade/src/server.ts`), which
- * authenticates at `:741` and answers **404** for somebody else's bot:
+ * authenticates and answers **404** for somebody else's bot:
  *
  *   * `GET  /v1/bots/:id`             — `trade/src/server.ts`
  *   * `GET  /v1/bots/:id/fills`       — `trade/src/server.ts`

@@ -1,7 +1,7 @@
 /**
  * Your bots.
  *
- * `GET /v1/bots` — `trade/src/server.ts`. At most 100, newest first (`:479`), the caller's own.
+ * `GET /v1/bots` — `trade/src/server.ts`. At most 100, newest first, the caller's own.
  *
  * The equity column is a MARK, not a settlement: it is whatever the last tick computed against
  * whatever price was available then. It is labelled as such rather than presented as a balance.

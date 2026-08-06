@@ -69,7 +69,7 @@ describe('when the key must be presented again', () => {
   })
 
   it('keeps it on every 5xx, including the two the service raises after partial work', () => {
-    // 503 ledger_unavailable (trade/src/server.ts) and 503 rate_unavailable (:269-274).
+    // 503 ledger_unavailable (trade/src/server.ts) and 503 rate_unavailable.
     for (const status of [500, 502, 503, 504]) {
       assert.equal(keepKeyAfter(api(status)), true, String(status))
     }
