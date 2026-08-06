@@ -4,7 +4,7 @@
  * `runBacktest` wrote `trades` and `equity` into columns that existed, and `COLUMNS` in
  * `trade/src/backtests.ts` selected neither — so no read path could reach them. Every ForgeTrade
  * report could say how deep a drawdown was and never when it happened, which is the one question a
- * curve exists to answer. `GET /v1/backtests/:id/result` (`trade/src/server.ts:447`) now serves it
+ * curve exists to answer. `GET /v1/backtests/:id/result` (`trade/src/server.ts:454`) now serves it
  * and this draws it.
  *
  * ## Money never becomes a JS number

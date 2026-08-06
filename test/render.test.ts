@@ -10,7 +10,7 @@
  * THE PRODUCT'S TWO CLAIMS, EACH ENFORCED
  *
  * **1. Fees and slippage are charged.** The service defaults a backtest to 10 bps of fee and 5 of
- * slippage rather than to zero (`trade/src/server.ts:480-481`), and paper trading is charged the
+ * slippage rather than to zero (`trade/src/server.ts:487-488`), and paper trading is charged the
  * same (`trade/src/bots.ts:81-82`) — because the frozen version booked a zero fee in paper mode
  * and "a paper bot beat the backtest of its own rule every time, which is the single comparison
  * this product exists to let somebody make" (`trade/src/bots.ts:73-80`). A UI that hid the charge,
@@ -234,7 +234,7 @@ describe('the refusals the service owns are rendered, not pre-empted', () => {
   it('the live kill switch is asked about, not guessed at, and unknown is not treated as on', () => {
     // TRADE_LIVE_ENABLED defaults to false (trade/src/env.ts:181) and is read per tick. This page
     // USED to say it could not check, because no route reported it; GET /v1/capabilities
-    // (trade/src/server.ts:361) now does, so the check is that it actually asks — and, more
+    // (trade/src/server.ts:368) now does, so the check is that it actually asks — and, more
     // importantly, that it distinguishes "switched off" from "could not tell".
     //
     // Hiding the live option entirely is still wrong: on a deployment where live is ON, that would

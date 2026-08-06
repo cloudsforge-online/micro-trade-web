@@ -144,7 +144,7 @@ describe('statistics, which really are floats', () => {
 
 describe('time', () => {
   it('renders a bar timestamp from UNIX SECONDS, not milliseconds', () => {
-    // `bar.t` is validated as "a unix second" at trade/src/server.ts:935. Forgetting the ×1000
+    // `bar.t` is validated as "a unix second" at trade/src/server.ts:942. Forgetting the ×1000
     // renders every bar as 1970, which looks like a data problem rather than a units one.
     const rendered = barTime(1_767_225_600)
     assert.match(rendered, /2026/, `${rendered} is not in 2026 — the seconds were read as millis`)

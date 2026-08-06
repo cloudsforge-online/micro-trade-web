@@ -66,7 +66,7 @@ export function timestamp(iso: string | null): string {
 /**
  * A bar timestamp, which arrives as UNIX SECONDS rather than as an ISO string.
  *
- * `bar.t` is validated as "a unix second" at `trade/src/server.ts:935`, and `fromT`/`toT` on a
+ * `bar.t` is validated as "a unix second" at `trade/src/server.ts:942`, and `fromT`/`toT` on a
  * backtest are the first and last of them (`trade/src/backtests.ts:96-97`). Multiplying by 1000 is
  * the whole conversion, and forgetting it renders every bar as 1970 — which looks like a data
  * problem rather than a units one.

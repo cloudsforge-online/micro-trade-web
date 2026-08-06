@@ -1,8 +1,8 @@
 /**
  * Your backtests.
  *
- * `GET /v1/backtests` — `trade/src/server.ts:419`. At most 100, newest first (`:386`), and the
- * caller's own: `ownerOf` (`trade/src/server.ts:793-799`) resolves the subject from the token.
+ * `GET /v1/backtests` — `trade/src/server.ts:426`. At most 100, newest first (`:386`), and the
+ * caller's own: `ownerOf` (`trade/src/server.ts:800-806`) resolves the subject from the token.
  *
  * The `userId` query parameter that route accepts is deliberately not offered here. It is honoured
  * only for an admin principal and is otherwise passed through `subjectUserId`, which refuses a

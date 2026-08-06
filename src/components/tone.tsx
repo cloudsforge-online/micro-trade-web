@@ -52,7 +52,7 @@ export function Maybe({ value, missing }: { value: string | null; missing: strin
  * THIS IS NOT DECORATION AND IT IS NOT A DISCLAIMER IN A FOOTER.
  *
  * A backtest is a simulation over bars that have already happened. It is charged the fee and the
- * slippage the run was configured with — `trade/src/server.ts:480-481` defaults them to 10 and 5
+ * slippage the run was configured with — `trade/src/server.ts:487-488` defaults them to 10 and 5
  * basis points rather than to zero, because "a strategy that only works for free does not work" —
  * and it still describes only the past.
  *

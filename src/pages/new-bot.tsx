@@ -1,8 +1,8 @@
 /**
  * Create a bot.
  *
- * `POST /v1/bots` — `trade/src/server.ts:591`. It creates a `draft`: nothing is reserved and
- * nothing trades until `start`. **201 fresh, 200 on a replay** (`trade/src/server.ts:640`).
+ * `POST /v1/bots` — `trade/src/server.ts:598`. It creates a `draft`: nothing is reserved and
+ * nothing trades until `start`. **201 fresh, 200 on a replay** (`trade/src/server.ts:647`).
  *
  * ── The two things this form has to say out loud ──────────────────────────────────────────────
  *
@@ -17,11 +17,11 @@
  * (`trade/src/env.ts:181`), it is read per tick rather than at boot (`trade/src/env.ts:11-16`), and
  * `startBot` refuses a live bot outright while it is off (`trade/src/bots.ts:562-564`). This form
  * used to be unable to know the deployment's setting, because no route exposed it, and said so
- * rather than guessing. `GET /v1/capabilities` (`trade/src/server.ts:361`) now reports it, so the
+ * rather than guessing. `GET /v1/capabilities` (`trade/src/server.ts:368`) now reports it, so the
  * form asks before the customer commits and renders the service's OWN refusal sentence — not a
  * paraphrase, so the warning and the eventual failure cannot say different things.
  *
- * The performance fee field defaults to the service's own 1500 bps (`trade/src/server.ts:608`) and
+ * The performance fee field defaults to the service's own 1500 bps (`trade/src/server.ts:615`) and
  * is sent explicitly, so the number the customer agreed to is the number on the row.
  */
 import { useMemo, useState, type FormEvent } from 'react'
@@ -39,7 +39,7 @@ import {
   type StrategyId,
 } from '../lib/trade.ts'
 
-/** `trade/src/server.ts:608`. Restated here because the form sends it explicitly. */
+/** `trade/src/server.ts:615`. Restated here because the form sends it explicitly. */
 const DEFAULT_FEE_BPS = 1500
 
 export function NewBotPage() {

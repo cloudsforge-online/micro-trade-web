@@ -2,7 +2,7 @@
  * Reading `/auth/me`.
  *
  * Identity answers `{ user: {...}, session: {...}, organisations: [...] }`. The route is
- * `identity/src/server.ts:891-903` and the body is built by `toPublicUser` at
+ * `identity/src/server.ts:1180-1192` and the body is built by `toPublicUser` at
  * `identity/src/users.ts:52-63`; both were opened and read for this repository.
  *
  * The estate got this wrong once at the root — the web template read `handle` and `roles` off the
@@ -101,7 +101,7 @@ describe('the source says what it does', () => {
   })
 
   it('cites the two lines the shape was read from', () => {
-    assert.match(source, /identity\/src\/server\.ts:891-903/)
+    assert.match(source, /identity\/src\/server\.ts:1180-1192/)
     assert.match(source, /identity\/src\/users\.ts:52-63/)
   })
 })

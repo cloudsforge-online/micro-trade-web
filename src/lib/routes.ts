@@ -32,7 +32,7 @@ export interface AppRoute {
    * True when the route renders without a session.
    *
    * Exactly one does, and it is read off the SERVICE rather than chosen: `GET /v1/strategies`
-   * (`trade/src/server.ts:342`) makes no `authenticate()` call at all, and the comment above it
+   * (`trade/src/server.ts:349`) makes no `authenticate()` call at all, and the comment above it
    * says why — "it is a product surface, the thing a prospective user reads before signing up, and
    * gating it behind a token would make the marketing page unable to render it". Putting it behind
    * the session gate would be this app demanding a token the service never wanted.
@@ -46,7 +46,7 @@ export const ROUTES: readonly AppRoute[] = [
   // signed in, which is who arrives at a product's front page. `GET /v1/strategies` is public.
   { path: '', label: 'Strategies', wildcard: false, public: true },
   // Wildcard: `/backtests/new` is the form and `/backtests/<uuid>` is the status page — the
-  // address `POST /v1/backtests` puts in its `location` header (`trade/src/server.ts:535`), which
+  // address `POST /v1/backtests` puts in its `location` header (`trade/src/server.ts:542`), which
   // is what a customer polls while the run is queued.
   { path: 'backtests', label: 'Backtests', wildcard: true, public: false },
   // Wildcard for the same reason: `/bots/new` and `/bots/<uuid>`.

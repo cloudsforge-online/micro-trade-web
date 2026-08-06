@@ -95,7 +95,7 @@ describe('which routes are public matches which routes trade leaves unauthentica
   /**
    * THE ASSERTION THIS FILE EXISTS FOR, ALONGSIDE THE nginx ONE.
    *
-   * `GET /v1/strategies` (trade/src/server.ts:342) makes no `authenticate()` call. Gating it would
+   * `GET /v1/strategies` (trade/src/server.ts:349) makes no `authenticate()` call. Gating it would
    * send a visitor to sign in for a page the service would have served them — and the estate has
    * already shipped the mirror-image defect, a client sending a bearer to a route with no
    * `authenticate()` call and then reasoning about a 403 that was never about authorisation.

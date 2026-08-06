@@ -24,7 +24,7 @@ import {
 
 describe('the key this client mints', () => {
   it('is inside the service’s 8 to 200 character window', () => {
-    // `idempotencyKeyOf` throws a BadRequestError outside it — trade/src/server.ts:840-848. A key
+    // `idempotencyKeyOf` throws a BadRequestError outside it — trade/src/server.ts:847-855. A key
     // that failed this would 400 every write in the app.
     const key = newIdempotencyKey()
     assert.ok(key.length >= 8, `${key.length} characters is under the service's minimum of 8`)
@@ -69,7 +69,7 @@ describe('when the key must be presented again', () => {
   })
 
   it('keeps it on every 5xx, including the two the service raises after partial work', () => {
-    // 503 ledger_unavailable (trade/src/server.ts:286-289) and 503 rate_unavailable (:269-274).
+    // 503 ledger_unavailable (trade/src/server.ts:293-296) and 503 rate_unavailable (:269-274).
     for (const status of [500, 502, 503, 504]) {
       assert.equal(keepKeyAfter(api(status)), true, String(status))
     }
@@ -111,7 +111,7 @@ describe('when the key must be presented again', () => {
 })
 
 describe('the codes are the ones the service actually sends', () => {
-  it('matches trade/src/server.ts:269 and :264', () => {
+  it('matches trade/src/server.ts:276 and :264', () => {
     // Spelled out here rather than only imported, so a rename upstream fails a test that names
     // the line to go and read.
     assert.equal(KEY_REUSE_CODE, 'idempotency_key_reuse')

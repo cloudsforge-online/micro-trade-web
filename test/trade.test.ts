@@ -11,7 +11,7 @@
  *
  * **1. Authentication has two spellings on trade, and only one of them is a literal
  * `authenticate()` call.** Four of the routes this app uses go through `ownedBot`
- * (`trade/src/server.ts:801-812`), which authenticates at `:741` and then 404s somebody else's
+ * (`trade/src/server.ts:808-819`), which authenticates at `:741` and then 404s somebody else's
  * bot. A check that grepped each handler body for `authenticate(` — which is exactly what
  * micro-mint-web's does, correctly, for a service where every handler calls it directly — would
  * declare all four UNAUTHENTICATED here, and a client built on that answer would send them no
@@ -301,7 +301,7 @@ describe('the cited lines are the lines that register the routes', () => {
     const webhook = DECLINED.find((r) => r.path === '/v1/events')
     if (!webhook) throw new Error('the webhook is no longer declined; say why, or call it')
     const body = bodyOf(webhook.line)
-    assert.match(body, /verifyEventSignature\(raw, deps\.eventSigningSecret, presented\)/)
+    assert.match(body, /verifyEventSignature\(raw, deps\.eventAcceptSecrets, presented\)/)
     assert.doesNotMatch(body, /authenticate\(/, 'the webhook now takes a bearer token')
   })
 })

@@ -160,7 +160,7 @@ describe('two events in one tick: starting a bot', () => {
    * The same two events against the answer the real service gives a self-inflicted duplicate.
    *
    * `trade/src/idempotency.ts:150` raises `IdempotencyInFlightError` for "same key, claim exists,
-   * no response yet", mapped to a 409 `idempotency_in_flight` at `trade/src/server.ts:271-273`.
+   * no response yet", mapped to a 409 `idempotency_in_flight` at `trade/src/server.ts:278-280`.
    * The key IS held in a ref, so both same-tick requests carried the SAME key and the second one
    * got that 409 — `keepKeyAfter` returns true for it, `setError` fires, and whichever promise
    * settled last won. The customer's bot started, and the screen said it had not.
@@ -233,7 +233,7 @@ describe('two events in one tick: creating a bot', () => {
           s.api.matching('POST /v1/bots').length,
           1,
           'two submit events in one tick posted two bot creations, and each carries an ' +
-            'allocation (trade/src/server.ts:591) — the customer gets a duplicate bot on their ' +
+            'allocation (trade/src/server.ts:598) — the customer gets a duplicate bot on their ' +
             'list committing the same capital twice the moment either one is started',
         )
       },
@@ -270,7 +270,7 @@ describe('two events in one tick: queuing a backtest', () => {
           s.api.matching('POST /v1/backtests').length,
           1,
           'two submit events in one tick queued two runs, so the same simulation is computed ' +
-            'twice (trade/src/server.ts:522-527) and the customer gets two status pages for one ' +
+            'twice (trade/src/server.ts:529-534) and the customer gets two status pages for one ' +
             'question',
         )
       },

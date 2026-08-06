@@ -1,18 +1,18 @@
 /**
  * One bot: its position, its fills, its fee settlements, and the three actions.
  *
- * Four routes, all owner-scoped through `ownedBot` (`trade/src/server.ts:801-812`), which
+ * Four routes, all owner-scoped through `ownedBot` (`trade/src/server.ts:808-819`), which
  * authenticates at `:741` and answers **404** for somebody else's bot:
  *
- *   * `GET  /v1/bots/:id`             — `trade/src/server.ts:548`
- *   * `GET  /v1/bots/:id/fills`       — `trade/src/server.ts:553`
- *   * `GET  /v1/bots/:id/settlements` — `trade/src/server.ts:571`
- *   * `POST /v1/bots/:id/actions`     — `trade/src/server.ts:651`, Idempotency-Key required
+ *   * `GET  /v1/bots/:id`             — `trade/src/server.ts:555`
+ *   * `GET  /v1/bots/:id/fills`       — `trade/src/server.ts:560`
+ *   * `GET  /v1/bots/:id/settlements` — `trade/src/server.ts:578`
+ *   * `POST /v1/bots/:id/actions`     — `trade/src/server.ts:658`, Idempotency-Key required
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * THE THREE REFUSALS THIS SCREEN HAS TO RENDER RATHER THAN PREVENT
  *
- * Each is a 409 `bot_state` (`BotStateError`, mapped at `trade/src/server.ts:274-276`):
+ * Each is a 409 `bot_state` (`BotStateError`, mapped at `trade/src/server.ts:281-283`):
  *
  *   1. **A stopped bot cannot be restarted** — `trade/src/bots.ts:561`. Stop is terminal, so the
  *      start button is not offered on a stopped bot and the page says why instead of leaving a
