@@ -19,19 +19,10 @@
  *
  * The names that DO exist and are used below:
  *   borders   --cf-line, --cf-line-strong          (never --cf-border)
- *   states    --cf-success, --cf-warn, --cf-danger (never --cf-status-*, never --cf-warning)
+ *   states    --cf-success, --cf-warn, --cf-danger (never --cf-status-*, never --cf-critical)
  *   radii     --cf-radius-sm, --cf-radius, --cf-radius-lg (never --cf-radius-md)
  *   spacing   --cf-space-3xs … --cf-space-3xl      (never --cf-space-1..5)
  *   type      --cf-font-sans, --cf-font-mono, --cf-font-display (never --cf-font)
- *
- * ── ONE SEVERITY, TWO STEPS, SINCE @cloudsforge/ui 1.1 ────────────────────────────────────────
- *
- * Each severity now ships a non-text value and a text one: `--cf-warn` is for borders and fills,
- * `--cf-warn-text` for a word or a glyph, and the pair for critical is `--cf-critical`
- * (3.38:1, a border colour) and `--cf-critical-text` (4.63:1, the one text may use). So
- * `--cf-critical` IS a token now — it was not when this file was written — and it is still the
- * wrong one to set `color:` from. `--cf-success` and `--cf-danger` survive as aliases of the two
- * text steps, which is why every use of them below is already right in both roles.
  *
  * A `var(--undefined, #hex)` is not a repair either: it is a hard-coded colour wearing a token's
  * clothes, and it stops following the substrate the moment somebody switches the ash ramp. There
@@ -71,16 +62,20 @@ body {
 
 /* ---- the frame -------------------------------------------------------- */
 
-/*
- * `.tw-skip` USED TO BE HERE, AND ITS DELETION IS THE POINT RATHER THAN A TIDY-UP.
- *
- * This surface had one of the estate's two skip links; the other fifteen had none, so the design
- * system took it — `.cf-skip` in `ui/packages/ui/src/ui.css`, rendered by `<SkipLink />`. Keeping a
- * local copy would mean this one surface's bypass drifted from everybody else's, which is the whole
- * class of problem 1.1 exists to end. The shared one is also better in the way that matters: it is
- * moved off the viewport with a transform rather than to `left: -9999px`, so it stays in the
- * accessibility tree and in the tab order rather than only in the layout.
- */
+.tw-skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: var(--cf-space-sm) var(--cf-space-lg);
+  background: var(--cf-accent);
+  color: var(--cf-accent-ink);
+  border-radius: 0 0 var(--cf-radius) 0;
+}
+
+.tw-skip:focus {
+  left: 0;
+}
 
 .wt-subnav {
   position: sticky;
@@ -392,8 +387,7 @@ body {
 .tw-card__weakness-label {
   display: inline-block;
   margin-right: var(--cf-space-2xs);
-  /* TEXT, so the text step. See the note above `.tw-badge--warn`. */
-  color: var(--cf-warn-text);
+  color: var(--cf-warn);
   font-size: var(--cf-text-xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -633,8 +627,7 @@ body {
 }
 
 .tw-note__icon {
-  /* A glyph is text as far as the contrast criterion is concerned. */
-  color: var(--cf-warn-text);
+  color: var(--cf-warn);
 }
 
 .tw-error {
@@ -673,22 +666,9 @@ body {
   color: var(--cf-success);
 }
 
-/*
- * THE BORDER AND THE WORD TAKE DIFFERENT STEPS OF THE SAME COLOUR, AND THAT IS THE 1.1 RULE.
- *
- * A border is a non-text element and needs 3:1; a word is text and needs 4.5:1. The design system
- * now ships both steps for each severity — `--cf-warn` for the first and `--cf-warn-text` for the
- * second (`ui/packages/ui/src/tokens.css:357-362`) — so a badge that used one value for both was
- * either failing the text criterion or over-lightening its own border.
- *
- * `--cf-success` and `--cf-danger` need no such edit anywhere in this file: 1.1 keeps them as
- * ALIASES of the text steps (`ui/packages/ui/src/tokens.css:390-391`), deliberately, so that every
- * existing `color: var(--cf-danger)` in the estate became AA-compliant without the repository
- * being touched, while the same token as a border still clears the 3:1 floor.
- */
 .tw-badge--warn {
   border-color: var(--cf-warn);
-  color: var(--cf-warn-text);
+  color: var(--cf-warn);
 }
 
 .tw-badge--crit {

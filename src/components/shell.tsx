@@ -4,17 +4,11 @@
  * The bar is `CloudsForgeBar` from @cloudsforge/ui and is never reimplemented. It is passed
  * `PRODUCT` — 'trade' — so the switcher marks Forge Trade as current and leaves every other
  * product clickable.
- *
- * Three more pieces of the shared chrome arrived with @cloudsforge/ui 1.1 and are composed here
- * rather than reimplemented: `SkipLink` first in the document, `MainRegion` around the page, and
- * `CookieBanner` last. See the note beside each.
  */
-import { useEffect } from 'react'
-import { CloudsForgeBar, CloudsForgeFooter, CookieBanner, MainRegion, SkipLink } from '@cloudsforge/ui'
-import { applyHead, surfaceMeta } from '@cloudsforge/ui/seo'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { CloudsForgeBar, CloudsForgeFooter } from '@cloudsforge/ui'
+import { NavLink, Outlet } from 'react-router-dom'
 import { PRODUCT } from '../lib/hosts.ts'
-import { NAV, ROUTES } from '../lib/routes.ts'
+import { NAV } from '../lib/routes.ts'
 import { useSession } from '../lib/auth.tsx'
 
 export function AppShell({ unregistered = false }: { unregistered?: boolean }) {
@@ -22,16 +16,11 @@ export function AppShell({ unregistered = false }: { unregistered?: boolean }) {
 
   return (
     <>
-      {/*
-        The skip link is the first focusable thing in the document, and it is now the SHARED one.
-        The backtest form is long and the bot pages are longer, so a keyboard reader should not have
-        to tab the bar, the switcher, the account menu and the section navigation on every
-        navigation to reach the page — WCAG 2.2 SC 2.4.1 is about exactly the repeated block the
-        shared bar is. `MainRegion` below is the half that is easy to get wrong: this app's own
-        `<main id="main">` had no `tabIndex={-1}`, so the fragment scrolled the page and left focus
-        on the link, and the next Tab went back into the bar. The shared component sets it.
-      */}
-      <SkipLink />
+      {/* Skip link first in the DOM: the backtest form is long, and a keyboard user should not
+          have to tab the whole navigation to reach it. */}
+      <a className="tw-skip" href="#main">
+        Skip to the page
+      </a>
       <CloudsForgeBar
         current={PRODUCT}
         account={account}
@@ -56,8 +45,7 @@ export function AppShell({ unregistered = false }: { unregistered?: boolean }) {
           ))}
         </div>
       </nav>
-      <DocumentMeta />
-      <MainRegion className="wt-main">
+      <main className="wt-main" id="main">
         {/*
           Not fatal, so not a refusal — this app has a public catalogue worth serving and nothing
           here is a security boundary. But not silent either. `cloudsforgeHosts()` derives the apex
@@ -77,7 +65,7 @@ export function AppShell({ unregistered = false }: { unregistered?: boolean }) {
           </p>
         )}
         <Outlet />
-      </MainRegion>
+      </main>
 
       {/*
         The company footer, from @cloudsforge/ui. Not written here, and deliberately not
@@ -92,76 +80,6 @@ export function AppShell({ unregistered = false }: { unregistered?: boolean }) {
         operator should be able to reach Admin from any page.
       */}
       <CloudsForgeFooter current={PRODUCT} account={account} />
-
-      {/*
-        LAST in the document, and therefore last in the tab order. That is deliberate: the banner is
-        a dialog and is explicitly NOT modal, so a reader who came here to read the strategy
-        catalogue can read it and answer afterwards. A consent banner that traps focus is the
-        coercion the regulation is about. It renders nothing at all until it knows the reader has
-        not already answered, and nothing on an origin where analytics would not report anyway.
-
-        Reject and Accept are one class with no modifier — see `.cf-consent__choice` in ui.css.
-        Nothing in this repository's stylesheet may make one of them louder than the other.
-      */}
-      <CookieBanner />
     </>
   )
-}
-
-/**
- * Keep `document.title`, the description, the Open Graph tags and the canonical link in step with
- * the address.
- *
- * A component in the shell rather than a hook each page calls, because the failure mode of the
- * second shape is the page that forgets — and the page that forgets is the one added last, which
- * is the one nobody has bookmarked and therefore the one nobody notices is titled with the
- * previous page's title.
- *
- * The tags themselves are `surfaceMeta` from `@cloudsforge/ui/seo`, which derives the surface name,
- * the description and the robots directive from the registry row this app already identifies itself
- * by. Nothing is retyped here, so a change to the `trade` row moves the tab, the search result and
- * the social card together. The static tags in `index.html` stay exactly as they are: they are what
- * a link-preview fetcher that runs no JavaScript gets, and this is what a browser and an executing
- * crawler get.
- */
-function DocumentMeta() {
-  const { pathname } = useLocation()
-  useEffect(() => {
-    applyHead(surfaceMeta(PRODUCT, { ...pageMeta(pathname), path: pathname }), window.location.origin)
-  }, [pathname])
-  return null
-}
-
-/**
- * This page's own title, and whether a crawler is invited to it.
- *
- * `robots` is read off `ROUTES` rather than decided here, because that table already says which
- * addresses render without a session. Everything under `/backtests` and `/bots` is a
- * `ProtectedRoute` over one customer's own rows, so an indexed one could only ever be the sign-in
- * redirect — a search result advertising an address nobody but its owner can open. The catalogue is
- * the page this product wants read, and it keeps the registry's `index, follow`.
- */
-function pageMeta(pathname: string): { title?: string; robots?: string } {
-  const segments = pathname.split('/').filter((s) => s !== '')
-  const head = segments[0]
-  const tail = segments[1]
-
-  // The index. `surfaceMeta` titles it with the surface name alone rather than "Forge Trade —
-  // Forge Trade", which is what a naive suffix produces on a front door.
-  if (head === undefined) return {}
-
-  const route = ROUTES.find((r) => r.path === head)
-  const gated = route !== undefined && !route.public ? { robots: 'noindex, nofollow' } : {}
-
-  if (head === 'backtests') {
-    if (tail === undefined) return { title: 'Backtests', ...gated }
-    return { title: tail === 'new' ? 'Queue a backtest' : 'Backtest', ...gated }
-  }
-  if (head === 'bots') {
-    if (tail === undefined) return { title: 'Bots', ...gated }
-    return { title: tail === 'new' ? 'Create a bot' : 'Bot', ...gated }
-  }
-  // An address this app does not own. nginx has already answered 404; the title says so too, and
-  // the directive keeps a mistyped link out of an index.
-  return { title: 'Not found', robots: 'noindex, nofollow' }
 }
