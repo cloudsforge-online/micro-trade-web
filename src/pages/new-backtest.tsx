@@ -1,17 +1,17 @@
 /**
  * Queue a backtest.
  *
- * `POST /v1/backtests` — `trade/src/server.ts:464`. **202 and a status URL; the run has not
+ * `POST /v1/backtests` — `trade/src/server.ts`. **202 and a status URL; the run has not
  * happened.** The handler validates, claims an idempotency key, writes a `queued` row and enqueues
- * the job after the claim commits (`trade/src/server.ts:518-529`). So this screen navigates to the
+ * the job after the claim commits (`trade/src/server.ts`). So this screen navigates to the
  * status page rather than rendering a result, and the button never says "run" in the past tense.
  *
  * ── Three defaults on this form are the product's argument, not conveniences ──────────────────
  *
- *   * **Fee, 10 bps.** `readBps(body, 'feeBps', 10)` — `trade/src/server.ts:480`.
- *   * **Slippage, 5 bps.** `readBps(body, 'slippageBps', 5)` — `trade/src/server.ts:481`.
+ *   * **Fee, 10 bps.** `readBps(body, 'feeBps', 10)` — `trade/src/server.ts`.
+ *   * **Slippage, 5 bps.** `readBps(body, 'slippageBps', 5)` — `trade/src/server.ts`.
  *   * **Seed, 0.** `readSeed` defaults to zero rather than randomising, and says why
- *     (`trade/src/server.ts:901-915`): a random default "would make an omitted seed produce a run
+ *     (`trade/src/server.ts`): a random default "would make an omitted seed produce a run
  *     nobody can reproduce, which is the exact property this service promises not to have".
  *
  * They are shown, editable, and sent explicitly, so the number on the screen is the number the row
@@ -21,8 +21,8 @@
  * ── The client validates nothing the service does not ─────────────────────────────────────────
  *
  * The `min`, `max` and `step` on each parameter input come from the catalogue's own spec
- * (`trade/src/catalog.ts:41-50`), and out-of-range values are CLAMPED by `normaliseParams` rather
- * than refused (`trade/src/catalog.ts:195-226`) — with the adjustment returned in `notes`. So the
+ * (`trade/src/catalog.ts`), and out-of-range values are CLAMPED by `normaliseParams` rather
+ * than refused (`trade/src/catalog.ts`) — with the adjustment returned in `notes`. So the
  * inputs advertise the range and the status page renders the notes; neither refuses what the
  * service would have accepted.
  */
@@ -42,7 +42,7 @@ import {
   type StrategyId,
 } from '../lib/trade.ts'
 
-/** `trade/src/server.ts:480-481`. Restated here because the form sends them explicitly. */
+/** `trade/src/server.ts`. Restated here because the form sends them explicitly. */
 const DEFAULT_FEE_BPS = 10
 const DEFAULT_SLIPPAGE_BPS = 5
 
@@ -139,7 +139,7 @@ export function NewBacktestPage() {
               setStrategyId(e.target.value as StrategyId)
               setTuning({})
               // The payload has changed, so the held idempotency key must not be reused with it —
-              // that combination is a 409 `idempotency_key_reuse` (`trade/src/idempotency.ts:151`).
+              // that combination is a 409 `idempotency_key_reuse` (`trade/src/idempotency.ts`).
               submit.reset()
             }}
           >

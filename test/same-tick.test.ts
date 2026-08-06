@@ -87,8 +87,8 @@ function both(what: string, body: (strict: boolean) => Promise<void>): void {
 /**
  * Fill the two selects and any empty required field, and hand back the commit control.
  *
- * Both forms `return` early without a strategy and a series (`src/pages/new-bot.tsx:86`,
- * `src/pages/new-backtest.tsx:86`), and a browser will not submit a form that fails constraint
+ * Both forms `return` early without a strategy and a series (`src/pages/new-bot.tsx`,
+ * `src/pages/new-backtest.tsx`), and a browser will not submit a form that fails constraint
  * validation. A scenario that skipped this would press the button, send nothing, and assert "one
  * request" against a form that sent none — the quietest way for a double-submit test to pass.
  */
@@ -150,7 +150,7 @@ describe('two events in one tick: starting a bot', () => {
           1,
           'two Start events in one tick sent two start actions, and starting a live bot reserves ' +
             'its whole allocation at the ledger before the status changes ' +
-            '(trade/src/bots.ts:566-579) — this is a second hold placed on a real balance',
+            '(trade/src/bots.ts) — this is a second hold placed on a real balance',
         )
       },
     )
@@ -159,8 +159,8 @@ describe('two events in one tick: starting a bot', () => {
   /**
    * The same two events against the answer the real service gives a self-inflicted duplicate.
    *
-   * `trade/src/idempotency.ts:150` raises `IdempotencyInFlightError` for "same key, claim exists,
-   * no response yet", mapped to a 409 `idempotency_in_flight` at `trade/src/server.ts:271-273`.
+   * `trade/src/idempotency.ts` raises `IdempotencyInFlightError` for "same key, claim exists,
+   * no response yet", mapped to a 409 `idempotency_in_flight` at `trade/src/server.ts`.
    * The key IS held in a ref, so both same-tick requests carried the SAME key and the second one
    * got that 409 — `keepKeyAfter` returns true for it, `setError` fires, and whichever promise
    * settled last won. The customer's bot started, and the screen said it had not.
@@ -233,7 +233,7 @@ describe('two events in one tick: creating a bot', () => {
           s.api.matching('POST /v1/bots').length,
           1,
           'two submit events in one tick posted two bot creations, and each carries an ' +
-            'allocation (trade/src/server.ts:591) — the customer gets a duplicate bot on their ' +
+            'allocation (trade/src/server.ts) — the customer gets a duplicate bot on their ' +
             'list committing the same capital twice the moment either one is started',
         )
       },
@@ -270,7 +270,7 @@ describe('two events in one tick: queuing a backtest', () => {
           s.api.matching('POST /v1/backtests').length,
           1,
           'two submit events in one tick queued two runs, so the same simulation is computed ' +
-            'twice (trade/src/server.ts:522-527) and the customer gets two status pages for one ' +
+            'twice (trade/src/server.ts) and the customer gets two status pages for one ' +
             'question',
         )
       },
@@ -353,7 +353,7 @@ describe('the visible state survives the latch', () => {
         const sent = s.api.matching(ACTIONS)
         assert.equal(sent.length, 2, 'the control was dead after one failure — the latch never released')
         // And the retry is a REPLAY, not a repeat: a 503 leaves the outcome unknown, so
-        // `keepKeyAfter` keeps the key (`src/lib/idempotency.ts:94-98`) and the service can
+        // `keepKeyAfter` keeps the key (`src/lib/idempotency.ts`) and the service can
         // recognise the second attempt as the same intent rather than committing capital twice.
         assert.equal(
           sent[0]?.headers['idempotency-key'],
@@ -505,8 +505,8 @@ describe('useIdempotentMutation, directly', () => {
   both('an UNKNOWN outcome keeps the key and a KNOWN one drops it', async (strict) => {
     // 503 → unknown → replay under the same key. Then success → the intent is settled, so a
     // third press is a NEW intent and must not collide with the old fingerprint
-    // (`trade/src/idempotency.ts:151`).
-    // `keepKeyAfter` branches on `instanceof ApiError` (`src/lib/idempotency.ts:95`), so the probe
+    // (`trade/src/idempotency.ts`).
+    // `keepKeyAfter` branches on `instanceof ApiError` (`src/lib/idempotency.ts`), so the probe
     // throws the real class rather than a look-alike.
     const keys: string[] = []
     await withScreen(
@@ -591,7 +591,7 @@ describe('a KNOWN refusal drops the key', () => {
    *
    * A 422 is a DECISION: nothing was committed, and the customer's next act is to change a field.
    * Presenting the old key with the edited body is a 409 `idempotency_key_reuse`
-   * (`trade/src/idempotency.ts:151`) that has nothing to do with the change they made — an error
+   * (`trade/src/idempotency.ts`) that has nothing to do with the change they made — an error
    * they cannot act on, on a form they have just corrected.
    */
   both('after a refusal the next attempt is a NEW intent', async (strict) => {
@@ -725,7 +725,7 @@ describe('editing the form after an UNKNOWN outcome starts a new intent', () => 
    * It matters in exactly one sequence, and it is not a rare one: the attempt ends UNKNOWN (a 503
    * from the ledger), so the key is deliberately KEPT for a replay — and then the customer, seeing
    * an error, changes the allocation and presses again. Same key, different body, and the service
-   * answers 409 `idempotency_key_reuse` (`trade/src/idempotency.ts:151`) rather than doing what
+   * answers 409 `idempotency_key_reuse` (`trade/src/idempotency.ts`) rather than doing what
    * they asked. `reset()` is what makes the edit a new intent.
    */
   both('changing the allocation after a 503 mints a new key', async (strict) => {

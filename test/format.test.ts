@@ -1,7 +1,7 @@
 /**
  * Turning exact integers into words without losing the exactness.
  *
- * `trade/src/performance.ts:12-20` sends every proportion as an exact `bigint` in basis points,
+ * `trade/src/performance.ts` sends every proportion as an exact `bigint` in basis points,
  * and gives the reason: computing max drawdown in doubles "for a large equity and a small fall
  * loses the fall entirely". A client that reads those back through `Number` to print them has
  * handed the rounding straight back.
@@ -43,7 +43,7 @@ describe('basis points as a percentage, exactly', () => {
   })
 
   it('keeps two places, so 0.01% does not render as 0%', () => {
-    // The exact failure `trade/src/performance.ts:16-20` describes: a 0.1% drawdown and a 10% one
+    // The exact failure `trade/src/performance.ts` describes: a 0.1% drawdown and a 10% one
     // must not differ by a rounding step.
     assert.equal(percent('1'), '0.01%')
     assert.equal(percent('10'), '0.10%')
@@ -94,7 +94,7 @@ describe('Shards, as an amount', () => {
 
   it('signs a positive value only where the sign carries meaning', () => {
     // A fill's `shards` is signed: negative on a buy, positive on a sell
-    // (`trade/src/fills.ts:60-61`). A bare "1,000" in that column does not say which.
+    // (`trade/src/fills.ts`). A bare "1,000" in that column does not say which.
     assert.equal(signedShards('1000'), '+1,000')
     assert.equal(signedShards('-1000'), '-1,000')
     assert.equal(signedShards('0'), '0')
@@ -144,7 +144,7 @@ describe('statistics, which really are floats', () => {
 
 describe('time', () => {
   it('renders a bar timestamp from UNIX SECONDS, not milliseconds', () => {
-    // `bar.t` is validated as "a unix second" at trade/src/server.ts:935. Forgetting the ×1000
+    // `bar.t` is validated as "a unix second" at trade/src/server.ts. Forgetting the ×1000
     // renders every bar as 1970, which looks like a data problem rather than a units one.
     const rendered = barTime(1_767_225_600)
     assert.match(rendered, /2026/, `${rendered} is not in 2026 — the seconds were read as millis`)
@@ -197,13 +197,13 @@ describe('every state has a word and a glyph, never a colour alone', () => {
   })
 
   it('says stop is terminal, because startBot refuses a stopped bot outright', () => {
-    // trade/src/bots.ts:561. A badge reading "stopped" without that sentence leaves a customer
+    // trade/src/bots.ts. A badge reading "stopped" without that sentence leaves a customer
     // hunting for a start button that will always 409.
     assert.match(botTone('stopped').meaning, /cannot be restarted/i)
   })
 
   it('says pause is not a flatten, because the position stays open by design', () => {
-    // trade/src/bots.ts:602-608.
+    // trade/src/bots.ts.
     assert.match(botTone('paused').meaning, /position stays open|not a flatten/i)
   })
 

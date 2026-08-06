@@ -2,22 +2,22 @@
  * Session state for the tree, and the gate in front of the routes that need one.
  *
  * Hiding a route is NOT the security boundary. `trade` verifies the bearer on every route that
- * needs one (`authenticate`, `trade/src/server.ts:779-785`), and every owned resource is filtered
- * by `user_id` in the query itself — `getOwnedBot` (`trade/src/bots.ts:217-223`) and
+ * needs one (`authenticate`, `trade/src/server.ts`), and every owned resource is filtered
+ * by `user_id` in the query itself — `getOwnedBot` (`trade/src/bots.ts`) and
  * `getOwnedBacktest` — so another customer's bot is a **404**, the same answer as "no such bot",
  * so ids cannot be enumerated. This exists so that a signed-out customer is sent to sign in
  * instead of being shown a screen made entirely of 401s.
  *
  * **One route is deliberately outside the gate**, because the service put it outside: `GET
- * /v1/strategies` (`trade/src/server.ts:342`) makes no `authenticate()` call at all. See
+ * /v1/strategies` (`trade/src/server.ts`) makes no `authenticate()` call at all. See
  * `src/lib/routes.ts`.
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * ── The `/auth/me` shape, re-read for this repository ─────────────────────────────────────────
  *
  * Identity answers `{ user: {...}, session: {...}, organisations: [...] }` — the profile is
- * **NESTED under `user`**. The route is `identity/src/server.ts:891-903` and the body is built by
- * `toPublicUser` at `identity/src/users.ts:52-63`. Both citations were opened and read against the
+ * **NESTED under `user`**. The route is `identity/src/server.ts` and the body is built by
+ * `toPublicUser` at `identity/src/users.ts`. Both citations were opened and read against the
  * source for this repository rather than carried over from a sibling.
  *
  * That shape is worth stating because the estate got it wrong once, at the root: the web template
@@ -27,7 +27,7 @@
  * operator.
  *
  * **It is fixed upstream**, and this file follows the template rather than mint-web on one point.
- * `micro-web-template/src/lib/auth.tsx:26` declares the nested shape and lines 98-99 read
+ * `micro-web-template/src/lib/auth.tsx` declares the nested shape and lines 98-99 read
  * `me?.user?.handle` / `me?.user?.roles`. The template accepts ONLY the nested shape, and its own
  * comment gives the reason: "Tolerating the flat one as a fallback would encode a response
  * identity does not send, and the next reader would not be able to tell which is real."

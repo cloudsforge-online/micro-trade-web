@@ -934,7 +934,7 @@ describe('the catalogue and this file agree', () => {
  * Choose a strategy and a series, and hand back the commit control.
  *
  * Both forms refuse outright without the two — `if (!strategy || !seriesId) return` at
- * `src/pages/new-bot.tsx:86` and the same line in `new-backtest.tsx`. A scenario that pressed the
+ * `src/pages/new-bot.tsx` and the same line in `new-backtest.tsx`. A scenario that pressed the
  * button without them would send nothing, observe nothing, and assert an empty network log, which
  * is the quietest way for a form test to pass against a form that does not work.
  */

@@ -8,7 +8,7 @@
  *     answer lost; a new key makes the retry a second reservation of the customer's capital.
  *   * **Keeping the key after a refusal.** The user fixes the field the 400 complained about and
  *     resubmits — same key, different body — and the service answers 409 `idempotency_key_reuse`
- *     (`trade/src/idempotency.ts:151`), which has nothing to do with what they changed.
+ *     (`trade/src/idempotency.ts`), which has nothing to do with what they changed.
  *
  * `keepKeyAfter` is the decision as a pure function, so both are provable without a browser.
  */
@@ -24,7 +24,7 @@ import {
 
 describe('the key this client mints', () => {
   it('is inside the service’s 8 to 200 character window', () => {
-    // `idempotencyKeyOf` throws a BadRequestError outside it — trade/src/server.ts:840-848. A key
+    // `idempotencyKeyOf` throws a BadRequestError outside it — trade/src/server.ts. A key
     // that failed this would 400 every write in the app.
     const key = newIdempotencyKey()
     assert.ok(key.length >= 8, `${key.length} characters is under the service's minimum of 8`)
@@ -69,7 +69,7 @@ describe('when the key must be presented again', () => {
   })
 
   it('keeps it on every 5xx, including the two the service raises after partial work', () => {
-    // 503 ledger_unavailable (trade/src/server.ts:286-289) and 503 rate_unavailable (:269-274).
+    // 503 ledger_unavailable (trade/src/server.ts) and 503 rate_unavailable (:269-274).
     for (const status of [500, 502, 503, 504]) {
       assert.equal(keepKeyAfter(api(status)), true, String(status))
     }
@@ -77,7 +77,7 @@ describe('when the key must be presented again', () => {
   })
 
   it('keeps it when the service says the original is still in flight', () => {
-    // trade/src/idempotency.ts:150 — "a claim with no response yet is 'in flight', not 'done'".
+    // trade/src/idempotency.ts — "a claim with no response yet is 'in flight', not 'done'".
     // The honest answer is retry, with THIS key.
     assert.equal(keepKeyAfter(api(409, IN_FLIGHT_CODE)), true)
   })
@@ -87,7 +87,7 @@ describe('when the key must be presented again', () => {
   })
 
   it('drops it on a 409 bot_state, which is a decision rather than an unknown', () => {
-    // "a stopped bot cannot be restarted" — trade/src/bots.ts:561. Nothing happened, and the next
+    // "a stopped bot cannot be restarted" — trade/src/bots.ts. Nothing happened, and the next
     // thing the customer does is a different action.
     assert.equal(keepKeyAfter(api(409, 'bot_state')), false)
   })
@@ -111,7 +111,7 @@ describe('when the key must be presented again', () => {
 })
 
 describe('the codes are the ones the service actually sends', () => {
-  it('matches trade/src/server.ts:269 and :264', () => {
+  it('matches trade/src/server.ts and :264', () => {
     // Spelled out here rather than only imported, so a rename upstream fails a test that names
     // the line to go and read.
     assert.equal(KEY_REUSE_CODE, 'idempotency_key_reuse')

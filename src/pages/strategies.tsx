@@ -1,12 +1,12 @@
 /**
  * The strategy catalogue. The public front page.
  *
- * `GET /v1/strategies` (`trade/src/server.ts:342`) makes no `authenticate()` call, so this renders
+ * `GET /v1/strategies` (`trade/src/server.ts`) makes no `authenticate()` call, so this renders
  * for somebody who has not signed in — which is who arrives at a product's front page.
  *
  * ── Every card carries its weakness, at the same weight as its tagline ────────────────────────
  *
- * `weakness` is a required field on every catalogue entry upstream (`trade/src/catalog.ts:52-60`)
+ * `weakness` is a required field on every catalogue entry upstream (`trade/src/catalog.ts`)
  * and the service's own comment says why in one line: "Stated on every entry, deliberately. A
  * catalogue that only lists upsides is advertising." So it is rendered beside the tagline rather
  * than behind a disclosure, and `test/render.test.ts` asserts that no card can be drawn without it.
@@ -37,10 +37,10 @@ export function StrategiesPage() {
       {/*
         THE PRODUCT'S CENTRAL CLAIM, ON THE FRONT PAGE RATHER THAN IN A FOOTNOTE.
 
-        `trade/src/server.ts:480-481` defaults a backtest to 10 basis points of fee and 5 of
+        `trade/src/server.ts` defaults a backtest to 10 basis points of fee and 5 of
         slippage — not zero — and paper bots are charged the same (`PAPER_FEE_BPS`,
-        `PAPER_SLIPPAGE_BPS`, `trade/src/bots.ts:82-83`). The service explains why at
-        `trade/src/bots.ts:73-80`: the frozen version converted at the raw rate with a zero fee, so
+        `PAPER_SLIPPAGE_BPS`, `trade/src/bots.ts`). The service explains why at
+        `trade/src/bots.ts`: the frozen version converted at the raw rate with a zero fee, so
         "a paper bot beat the backtest of its own rule every time, which is the single comparison
         this product exists to let somebody make".
       */}

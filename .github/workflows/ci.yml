@@ -44,11 +44,11 @@
 #
 # Re-checked against micro-org rather than believed:
 #
-#   * the single checkout is fixed. web-ci.yml:88-115 checks the app out into `app/`, micro-ui into
+#   * the single checkout is fixed. web-ci.yml checks the app out into `app/`, micro-ui into
 #     `ui/` beside it, and installs THE SIBLING FIRST, because `link:` resolves to the sibling's own
 #     node_modules — the shape of the `check:` job below. micro-ui is public now, so even the
 #     `estate_token` fallback to `github.token` resolves.
-#   * the deep-route probe is fixed, and inverted. web-ci.yml:290-297 REQUIRES an unknown path to
+#   * the deep-route probe is fixed, and inverted. web-ci.yml REQUIRES an unknown path to
 #     answer 404 and names `try_files $uri /index.html` as the thing not to do; the 200 is now asked
 #     only of the optional `deep-link-path` input (:299-309), a route the app really has.
 #
@@ -57,7 +57,7 @@
 # never claimed to be temporary — re-read the first line of this header, it names `check` and
 # `image` — and web-ci.yml has no input that could carry it. Its `runtime-hosts` job checks VITE_*,
 # build arguments, third-party analytics and the README. It cannot check
-#   that every route this client calls cites the line that serves it (line 416),
+#   that every route this client calls is really registered by the service (line 416),
 #   that every mutation sends an Idempotency-Key (line 434),
 #   or that no act-as-anyone parameter (line 447).
 #
@@ -103,14 +103,14 @@ jobs:
       # THE SERVICE THIS CLIENT IS BUILT AGAINST, CHECKED OUT SO THE CITATIONS CAN BE VERIFIED.
       #
       # `test/trade.test.ts` reads `trade/src/server.ts` and requires that every route this bundle
-      # calls is registered at the line its citation names, that the one route called without a
+      # calls is registered there — found by searching for its `define(`, never by line — that the
+      # one route called without a
       # bearer really makes no `authenticate()` call, that the four routes which authenticate
       # THROUGH `ownedBot` still do, and that every mutation still requires an `Idempotency-Key`.
       # Eight clients in this estate were built against a surface somebody imagined; one made every
       # on-chain escrow activation fail with a false diagnosis.
       #
-      # Only `src/` is fetched — the citations are line numbers in source, and nothing here builds
-      # or runs the service.
+      # Only `src/` is fetched — the check reads source and nothing here builds or runs the service.
       # ══════════════════════════════════════════════════════════════════════════════════════════
       - uses: actions/checkout@v4
         with:
@@ -190,19 +190,14 @@ jobs:
             echo "::error::micro-trade was not checked out; the route citations were never verified"
             exit 1
           }
-          # ── The line is READ out of the test, never written down here ──────────────────────────
+          # ── THERE IS NO LINE NUMBER TO READ ANY MORE, AND THAT IS THE POINT ────────────────────
           #
-          # Hardcoding `334` in this file makes it a THIRD copy of a citation that already lives in
-          # two places, and the copy is the one that goes stale. The day `/v1/strategies` moves and
-          # somebody correctly updates the table, a hardcoded grep fails with "the route
-          # cross-check did not run" — which is false, and sends the reader to the wrong place.
-          # This estate's recurring defect is a confident wrong diagnosis; a check that produces one
-          # when it is the check that is out of date has become the thing it was written to catch.
-          cited=$(grep -oE "path: '/v1/strategies', line: [0-9]+" test/trade.test.ts | grep -oE '[0-9]+$')
-          [ -n "${cited:-}" ] || {
-            echo "::error::no citation for GET /v1/strategies in test/trade.test.ts; the surface table has changed shape"
-            exit 1
-          }
+          # This step used to pull a cited line out of the test and grep the output for it. The line
+          # number was itself the defect: it named a position in a file that a DIFFERENT repository
+          # owns, so an edit near micro-trade's imports moved every route below it and turned this
+          # repository red while nothing here was wrong. The test now finds each route by searching
+          # for its `define(` and asserts that it exists, which is the fact worth having and the one
+          # that survives the service being edited.
           out=$(node --import tsx --test test/trade.test.ts 2>&1 || true)
           # `grep -q PATTERN <<<"$var"` rather than `printf '%s\n' "$var" | grep -q PATTERN`.
           # grep -q exits on its first match by design; the producer then writes into a closed pipe,
@@ -213,27 +208,27 @@ jobs:
             echo "::error::the route cross-check skipped itself while micro-trade was present"
             exit 1
           fi
-          grep -q "is registered at trade/src/server.ts:${cited}" <<<"$out" || {
+          grep -q "is registered in trade/src/server.ts" <<<"$out" || {
             echo "::error::the route cross-check did not run against trade/src/server.ts"
             exit 1
           }
-          # Eleven called routes plus three declined ones, each asserted against its own line.
+          # Thirteen called routes plus three declined ones, each looked up in the service.
           #
           # DEDUPED before counting. node:test names each subtest twice — once as it runs and once
-          # in the summary — so a raw `grep -c` reported "28 cited routes verified" for fourteen
-          # routes. The threshold still passed, so nothing was broken; the LOG LINE was simply
-          # wrong, which is the defect this whole repository is built to avoid. A number nobody can
-          # reconcile is a number somebody eventually reasons from.
-          count=$(printf '%s\n' "$out" | grep -oE 'is registered at trade/src/server\.ts:[0-9]+' | sort -u | wc -l | tr -d ' ')
-          [ "$count" -ge 14 ] || {
-            echo "::error::only $count route citations were verified; the surface has fourteen"
+          # in the summary — so a raw `grep -c` doubles the figure. The threshold still passed, so
+          # nothing was broken; the LOG LINE was simply wrong, which is the defect this whole
+          # repository is built to avoid. A number nobody can reconcile is a number somebody
+          # eventually reasons from.
+          count=$(printf '%s\n' "$out" | grep -oE '[A-Z]+ /v1/[^ ]+ is registered in trade/src/server\.ts' | sort -u | wc -l | tr -d ' ')
+          [ "$count" -ge 16 ] || {
+            echo "::error::only $count routes were checked against the service; the surface has sixteen"
             exit 1
           }
-          echo "ok: $count cited routes verified against the service that serves them"
+          echo "ok: $count routes verified against the service that serves them"
 
-      # …and the cross-check can fail. Bend one citation and require the suite to go red, so a
+      # …and the cross-check can fail. Bend one route and require the suite to go red, so a
       # `trade.test.ts` reduced to assertions that always pass cannot look like a verified client.
-      - name: …and it would have noticed a wrong citation
+      - name: …and it would have noticed a route the service does not serve
         working-directory: trade-web
         run: |
           set -euo pipefail
@@ -241,29 +236,30 @@ jobs:
           restore() { cp "$RUNNER_TEMP/trade.test.ts.orig" test/trade.test.ts; }
           trap restore EXIT
 
-          # Read the cited line and bend THAT, rather than naming a number here. A `sed` that
-          # names a line the file no longer carries is a silent no-op: the suite then passes
-          # UNCHANGED and this step reports "the cross-check passed a citation off by one line",
-          # accusing a correct test of being fake. Deriving the number makes the mutation real, and
-          # the assertion below makes "the mutation happened" a checked fact rather than an
-          # assumption.
-          cited=$(grep -oE "path: '/v1/strategies', line: [0-9]+" test/trade.test.ts | grep -oE '[0-9]+$')
-          [ -n "${cited:-}" ] || {
-            echo "::error::no citation for GET /v1/strategies in test/trade.test.ts"
+          # THE MUTATION IS A PATH NOW, NOT A LINE. Bending a line number tested that the suite read
+          # a particular position in the service; bending a path tests that it read the service at
+          # all, which is the property actually worth having and the only one that survives micro-
+          # trade being edited. `/v1/strategies` is a route the service really registers, so
+          # renaming it to one it does not must turn this suite red.
+          #
+          # The mutation is asserted to have HAPPENED before its effect is judged: a `sed` that
+          # matched nothing is a silent no-op, and this step would then report a correct test as
+          # fake — a confident wrong diagnosis, which is the defect this repository exists to avoid.
+          grep -q "path: '/v1/strategies'" test/trade.test.ts || {
+            echo "::error::GET /v1/strategies is not in the surface table; it has changed shape"
             exit 1
           }
-          bent=$((cited + 1))
-          sed -i "s|path: '/v1/strategies', line: ${cited}|path: '/v1/strategies', line: ${bent}|" test/trade.test.ts
+          sed -i "s|path: '/v1/strategies'|path: '/v1/strategies-that-do-not-exist'|" test/trade.test.ts
           if cmp -s test/trade.test.ts "$RUNNER_TEMP/trade.test.ts.orig"; then
             echo "::error::the mutation changed nothing, so this step proves nothing"
             exit 1
           fi
 
           if node --import tsx --test test/trade.test.ts >/dev/null 2>&1; then
-            echo "::error::the cross-check passed with GET /v1/strategies cited at ${bent} instead of ${cited} — it is not reading the service"
+            echo "::error::the cross-check passed with a route the service does not serve — it is not reading the service"
             exit 1
           fi
-          echo "ok: moving one citation from ${cited} to ${bent} turns the suite red, so a pass is evidence"
+          echo "ok: naming a route the service does not serve turns the suite red, so a pass is evidence"
 
       # ── The design-system cross-check must also have RUN ──────────────────────────────────────
       #
@@ -432,7 +428,7 @@ jobs:
           echo "ok: ${paths:-0} route literals, ${cites:-0} citations, and no uncited call site"
 
       - name: Every mutation sends an Idempotency-Key
-        # trade/src/server.ts:775-783 answers 400 without one, on all three mutating routes. This
+        # trade/src/server.ts answers 400 without one, on all three mutating routes. This
         # is the rule micro-mint-web's equivalent asserts in the OPPOSITE direction, because mint
         # reads no such header — copying either client to the other service breaks every write.
         run: |
@@ -446,7 +442,7 @@ jobs:
 
       - name: No act-as-anyone parameter
         # `GET /v1/backtests` and `GET /v1/bots` honour a `userId` query parameter for an admin
-        # principal (`ownerOf`, trade/src/server.ts:728-734). From a customer bundle it can only
+        # principal (`ownerOf`, trade/src/server.ts). From a customer bundle it can only
         # ever be the caller's own id or a 403, so exposing it would put an act-as-anyone-shaped
         # control in a product app for no reachable behaviour.
         run: |
@@ -644,12 +640,12 @@ jobs:
   # already drifted:
   #
   #   generator  `cfctl release` pins one image per deployable, the name from
-  #              org/tools/registry.ts:367-369 (`ghcr.io/<org>/<repo.repo>`, which is why the package
+  #              org/tools/registry.ts (`ghcr.io/<org>/<repo.repo>`, which is why the package
   #              is micro-<app> and not <app>) and the tag from that repository's package.json
-  #              version, org/tools/cfctl.ts:962-968.
+  #              version, org/tools/cfctl.ts.
   #   verifier   `cfctl release --verify` runs `docker manifest inspect` on EVERY entry and returns
-  #              non-zero if one cannot be pulled, org/tools/cfctl.ts:997-1038.
-  #   deployer   deploy/scripts/release-deploy.sh:99-124 refuses to change anything while any image
+  #              non-zero if one cannot be pulled, org/tools/cfctl.ts.
+  #   deployer   deploy/scripts/release-deploy.sh refuses to change anything while any image
   #              is missing.
   #
   # A frontend with no producer was therefore a manifest entry that could never verify.

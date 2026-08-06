@@ -35,7 +35,7 @@ export function Fact({ label, children }: { label: string; children: ReactNode }
  * A value that may be absent, where absence is a real answer rather than a rendering problem.
  *
  * `missing` is the SENTENCE, not a dash. A backtest that has not completed has `metrics: null`
- * (`trade/src/backtests.ts:222` writes the column only on the `complete` branch), and rendering
+ * (`trade/src/backtests.ts` writes the column only on the `complete` branch), and rendering
  * that as a row of zeros would be a claim about a run that has not happened.
  */
 export function Maybe({ value, missing }: { value: string | null; missing: string }) {
@@ -52,7 +52,7 @@ export function Maybe({ value, missing }: { value: string | null; missing: strin
  * THIS IS NOT DECORATION AND IT IS NOT A DISCLAIMER IN A FOOTER.
  *
  * A backtest is a simulation over bars that have already happened. It is charged the fee and the
- * slippage the run was configured with — `trade/src/server.ts:480-481` defaults them to 10 and 5
+ * slippage the run was configured with — `trade/src/server.ts` defaults them to 10 and 5
  * basis points rather than to zero, because "a strategy that only works for free does not work" —
  * and it still describes only the past.
  *

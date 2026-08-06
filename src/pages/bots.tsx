@@ -1,7 +1,7 @@
 /**
  * Your bots.
  *
- * `GET /v1/bots` — `trade/src/server.ts:540`. At most 100, newest first (`:479`), the caller's own.
+ * `GET /v1/bots` — `trade/src/server.ts`. At most 100, newest first (`:479`), the caller's own.
  *
  * The equity column is a MARK, not a settlement: it is whatever the last tick computed against
  * whatever price was available then. It is labelled as such rather than presented as a balance.
@@ -31,7 +31,7 @@ export function BotsPage() {
 
       {/*
         The fee, stated where the bots are, not in a settings page nobody opens.
-        `trade/src/server.ts:608` defaults `feeBps` to 1500 on creation, and `trade/src/fees.ts:9-12`
+        `trade/src/server.ts` defaults `feeBps` to 1500 on creation, and `trade/src/fees.ts`
         states the model: "Trade is free until it makes money. Backtests, the strategy catalogue and
         paper trading never cost anything. The only charge is a share of a LIVE bot's gains,
         assessed against a HIGH-WATER MARK."
@@ -100,7 +100,7 @@ function Row({ bot }: { bot: Bot }) {
       <td className="cf-num">{shards(bot.allocation)}</td>
       {/*
         "marked", in the header, because that is what it is: a tick writes `equity` from the price
-        it could get at the time (`trade/src/bots.ts:13-16`), against a position that is still open.
+        it could get at the time (`trade/src/bots.ts`), against a position that is still open.
       */}
       <td className="cf-num">{shards(bot.equity)}</td>
       <td className="cf-num">{shards(bot.feeOwed)}</td>

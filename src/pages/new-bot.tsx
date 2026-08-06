@@ -1,27 +1,27 @@
 /**
  * Create a bot.
  *
- * `POST /v1/bots` — `trade/src/server.ts:591`. It creates a `draft`: nothing is reserved and
- * nothing trades until `start`. **201 fresh, 200 on a replay** (`trade/src/server.ts:640`).
+ * `POST /v1/bots` — `trade/src/server.ts`. It creates a `draft`: nothing is reserved and
+ * nothing trades until `start`. **201 fresh, 200 on a replay** (`trade/src/server.ts`).
  *
  * ── The two things this form has to say out loud ──────────────────────────────────────────────
  *
  * **1. Paper is charged.** `PAPER_FEE_BPS = 10` and `PAPER_SLIPPAGE_BPS = 5`
- * (`trade/src/bots.ts:81-82`) match the backtest's defaults by construction, and
- * `trade/src/bots.ts:73-80` says why: the frozen service booked a zero fee in paper mode, "so a
+ * (`trade/src/bots.ts`) match the backtest's defaults by construction, and
+ * `trade/src/bots.ts` says why: the frozen service booked a zero fee in paper mode, "so a
  * paper bot beat the backtest of its own rule every time — which is the single comparison this
  * product exists to let somebody make". A form that let a customer believe paper was free would
  * undo that.
  *
  * **2. Live may be switched off underneath them.** `TRADE_LIVE_ENABLED` defaults to **false**
- * (`trade/src/env.ts:181`), it is read per tick rather than at boot (`trade/src/env.ts:11-16`), and
- * `startBot` refuses a live bot outright while it is off (`trade/src/bots.ts:562-564`). This form
+ * (`trade/src/env.ts`), it is read per tick rather than at boot (`trade/src/env.ts`), and
+ * `startBot` refuses a live bot outright while it is off (`trade/src/bots.ts`). This form
  * used to be unable to know the deployment's setting, because no route exposed it, and said so
- * rather than guessing. `GET /v1/capabilities` (`trade/src/server.ts:361`) now reports it, so the
+ * rather than guessing. `GET /v1/capabilities` (`trade/src/server.ts`) now reports it, so the
  * form asks before the customer commits and renders the service's OWN refusal sentence — not a
  * paraphrase, so the warning and the eventual failure cannot say different things.
  *
- * The performance fee field defaults to the service's own 1500 bps (`trade/src/server.ts:608`) and
+ * The performance fee field defaults to the service's own 1500 bps (`trade/src/server.ts`) and
  * is sent explicitly, so the number the customer agreed to is the number on the row.
  */
 import { useMemo, useState, type FormEvent } from 'react'
@@ -39,7 +39,7 @@ import {
   type StrategyId,
 } from '../lib/trade.ts'
 
-/** `trade/src/server.ts:608`. Restated here because the form sends it explicitly. */
+/** `trade/src/server.ts`. Restated here because the form sends it explicitly. */
 const DEFAULT_FEE_BPS = 1500
 
 export function NewBotPage() {
@@ -323,7 +323,7 @@ export function NewBotPage() {
           </button>
           <span className="tw-form__hint">
             It is created as a draft — the column defaults to it (
-            <code className="cf-num">trade/src/migrations.ts:245</code>). Starting it is a separate,
+            <code className="cf-num">trade/src/migrations.ts</code>). Starting it is a separate,
             deliberate action.
           </span>
         </div>

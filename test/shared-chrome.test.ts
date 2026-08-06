@@ -16,7 +16,7 @@
  * is what notices when it stops. Delete the flag and these tests are the first to go red.
  *
  * Publishing `dist` did NOT make that unnecessary, though eight repositories predicted it would:
- * `dist/index.js` has the same realpath as `src/index.tsx`, so it finds the same second copy. What
+ * `dist/index.js` has the same realpath as `ui/packages/ui/src/index.tsx`, so it finds the same second copy. What
  * publishing `dist` did fix was the OTHER workaround — the classic JSX transform, and the
  * `globalThis.React` that used to sit in `test/dom.ts`.
  *

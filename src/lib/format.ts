@@ -5,7 +5,7 @@
  * THREE RULES. THE FIRST TWO ARE THIS ESTATE'S; THE THIRD IS THIS PRODUCT'S.
  *
  * **1. Never render a null as a zero.** A backtest that has not finished has `metrics: null`
- * (`trade/src/backtests.ts:222` writes the column only on the `complete` branch). Rendering that
+ * (`trade/src/backtests.ts` writes the column only on the `complete` branch). Rendering that
  * as a row of zeros would be a claim that a run which has not happened produced nothing.
  *
  * **2. Never colour alone.** The estate's reserved status hues sit ΔE 4.6 apart under protanopia
@@ -66,8 +66,8 @@ export function timestamp(iso: string | null): string {
 /**
  * A bar timestamp, which arrives as UNIX SECONDS rather than as an ISO string.
  *
- * `bar.t` is validated as "a unix second" at `trade/src/server.ts:935`, and `fromT`/`toT` on a
- * backtest are the first and last of them (`trade/src/backtests.ts:96-97`). Multiplying by 1000 is
+ * `bar.t` is validated as "a unix second" at `trade/src/server.ts`, and `fromT`/`toT` on a
+ * backtest are the first and last of them (`trade/src/backtests.ts`). Multiplying by 1000 is
  * the whole conversion, and forgetting it renders every bar as 1970 — which looks like a data
  * problem rather than a units one.
  */
@@ -102,7 +102,7 @@ function pick(ms: number): [number, string] {
  * A Shards amount, grouped.
  *
  * The value arrives as a decimal string and stays one — `amountTo` puts it on the wire as a string
- * precisely so it is never a double (`trade/src/money.ts:187-194`), and putting it through
+ * precisely so it is never a double (`trade/src/money.ts`), and putting it through
  * `Number` here to add commas would undo that in the one place a person reads it.
  *
  * A value this function does not recognise is returned VERBATIM. A wrong-looking number a customer
@@ -126,7 +126,7 @@ export function signedShards(value: string): string {
  *
  * 10000 bps is 100%. The arithmetic is done on the STRING, in `bigint`, because that is the whole
  * reason the service sends a proportion as an exact integer rather than a float
- * (`trade/src/performance.ts:16-20`: "there is no reason to round it into a float — doing so is
+ * (`trade/src/performance.ts`: "there is no reason to round it into a float — doing so is
  * what let a 0.1% drawdown and a 10% one differ by a rounding step"). Reading it back through
  * `Number` here would give the rounding back for free.
  *
@@ -147,7 +147,7 @@ export function percent(bps: string): string {
  *
  * `profitFactorBps` is gross profit over gross loss, and a run with no losing trade has no defined
  * value — JSON cannot carry Infinity, so the service stores **zero** and says in the same comment
- * that "a reader tells the two cases apart with `losses`" (`trade/src/performance.ts:200-204`).
+ * that "a reader tells the two cases apart with `losses`" (`trade/src/performance.ts`).
  * A screen that printed `0.00×` for a run that never lost would be reporting the best possible
  * outcome as the worst one.
  */
@@ -164,7 +164,7 @@ export function profitFactor(metrics: BacktestMetrics): string {
 /**
  * A statistic — Sharpe, Sortino, Calmar, CAGR.
  *
- * These really are floats on the wire (`trade/src/performance.ts:18-20`: "they are statistics about
+ * These really are floats on the wire (`trade/src/performance.ts`: "they are statistics about
  * a distribution, not amounts, and nobody is paid a Sharpe"), so `Number` is correct here and
  * nowhere else in this file.
  */
@@ -194,7 +194,7 @@ export interface Tone {
   readonly meaning: string
 }
 
-/** The four backtest states — `trade/src/backtests.ts:38`. All four, including the two that pass. */
+/** The four backtest states — `trade/src/backtests.ts`. All four, including the two that pass. */
 export function backtestTone(status: BacktestStatus): Tone {
   switch (status) {
     case 'queued':
@@ -229,10 +229,10 @@ export function backtestTone(status: BacktestStatus): Tone {
 }
 
 /**
- * The five bot states — `trade/src/bots.ts:94`.
+ * The five bot states — `trade/src/bots.ts`.
  *
  * `stopped` is terminal and says so: `startBot` refuses it outright with "a stopped bot cannot be
- * restarted — create a new one" (`trade/src/bots.ts:561`). A badge that read "stopped" without
+ * restarted — create a new one" (`trade/src/bots.ts`). A badge that read "stopped" without
  * that sentence would leave a customer looking for a start button that will always 409.
  */
 export function botTone(status: BotStatus): Tone {
@@ -275,7 +275,7 @@ export function botTone(status: BotStatus): Tone {
   }
 }
 
-/** The four fill states — `trade/src/fills.ts:49`. */
+/** The four fill states — `trade/src/fills.ts`. */
 export function fillTone(status: FillStatus): Tone {
   switch (status) {
     case 'planned':
@@ -305,11 +305,11 @@ export function fillTone(status: FillStatus): Tone {
 }
 
 /**
- * The four settlement states — `trade/src/fees.ts:102`.
+ * The four settlement states — `trade/src/fees.ts`.
  *
  * `uncollectable` is the honest one: the ledger said no, the row is retired, and the debt goes back
  * to `feeOwed`. `unresolved` is not in this list on purpose — an unknown outcome stays `pending`,
- * which is invariant 4 of `trade/src/fees.ts:42-51` ("an unknown outcome is not a refusal").
+ * which is invariant 4 of `trade/src/fees.ts` ("an unknown outcome is not a refusal").
  */
 export function settlementTone(status: SettlementStatus): Tone {
   switch (status) {
@@ -339,7 +339,7 @@ export function settlementTone(status: SettlementStatus): Tone {
   }
 }
 
-/** `trade/src/catalog.ts:31-37`, as a person reads them. */
+/** `trade/src/catalog.ts`, as a person reads them. */
 export function familyName(family: StrategyFamily): string {
   switch (family) {
     case 'benchmark':
@@ -361,7 +361,7 @@ export function familyName(family: StrategyFamily): string {
  * A bot's mode, spelled out.
  *
  * `paper` is not "free practice": paper execution is charged the same 10 bps fee and 5 bps slippage
- * the backtest uses, and the service explains why (`trade/src/bots.ts:73-80`) — the frozen version
+ * the backtest uses, and the service explains why (`trade/src/bots.ts`) — the frozen version
  * converted at the raw rate with a zero fee, "so a paper bot beat the backtest of its own rule
  * every time, which is the single comparison this product exists to let somebody make".
  */

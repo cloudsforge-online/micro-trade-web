@@ -5,13 +5,13 @@
  * That is the whole problem: a test that asserts "the client calls /v1/bots" is a test that the
  * client agrees with itself. So this file does not assert paths in the abstract — it reads
  * `trade/src/server.ts` from the sibling checkout and requires that each path and method this
- * bundle calls is REGISTERED there, at the line the citation names.
+ * bundle calls is REGISTERED there.
  *
  * ── Two things this file checks that micro-mint-web's equivalent does not ──────────────────────
  *
  * **1. Authentication has two spellings on trade, and only one of them is a literal
  * `authenticate()` call.** Four of the routes this app uses go through `ownedBot`
- * (`trade/src/server.ts:801-812`), which authenticates at `:741` and then 404s somebody else's
+ * (`trade/src/server.ts`), which authenticates and then 404s somebody else's
  * bot. A check that grepped each handler body for `authenticate(` — which is exactly what
  * micro-mint-web's does, correctly, for a service where every handler calls it directly — would
  * declare all four UNAUTHENTICATED here, and a client built on that answer would send them no
@@ -52,37 +52,38 @@ const tradeServer = TRADE_CANDIDATES.find((p) => existsSync(p))
  * How a route establishes who is calling.
  *
  *   'direct'    — the handler body contains `await authenticate(ctx, deps)`
- *   'ownedBot'  — the handler body calls `ownedBot(ctx, deps, …)`, which authenticates at :741
+ *   'ownedBot'  — the handler body calls `ownedBot(ctx, deps, …)`, which authenticates
  *   'none'      — neither; the handler never learns who is calling
  */
 type AuthKind = 'direct' | 'ownedBot' | 'none'
 
 /**
- * The surface this bundle uses, with the line each was read from.
+ * The surface this bundle uses.
  *
- * Written down here as DATA so the check below can be mechanical. If one of these citations is
- * wrong, the test fails and names it — which is the property a comment does not have.
+ * Written down as DATA so the check below can be mechanical: each entry must be registered by the
+ * service, and the service must serve nothing this table has never heard of. Neither direction
+ * needs a line number, and a line number is what used to break this file whenever micro-trade was
+ * edited in a way that moved its routes without changing them.
  */
 const SURFACE: ReadonlyArray<{
   method: string
   path: string
-  line: number
   auth: AuthKind
   idempotent: boolean
 }> = [
-  { method: 'GET', path: '/v1/strategies', line: 348, auth: 'none', idempotent: false },
-  { method: 'GET', path: '/v1/capabilities', line: 367, auth: 'none', idempotent: false },
-  { method: 'GET', path: '/v1/series', line: 379, auth: 'direct', idempotent: false },
-  { method: 'GET', path: '/v1/backtests', line: 425, auth: 'direct', idempotent: false },
-  { method: 'GET', path: '/v1/backtests/:id', line: 433, auth: 'direct', idempotent: false },
-  { method: 'GET', path: '/v1/backtests/:id/result', line: 453, auth: 'direct', idempotent: false },
-  { method: 'POST', path: '/v1/backtests', line: 470, auth: 'direct', idempotent: true },
-  { method: 'GET', path: '/v1/bots', line: 546, auth: 'direct', idempotent: false },
-  { method: 'GET', path: '/v1/bots/:id', line: 554, auth: 'ownedBot', idempotent: false },
-  { method: 'GET', path: '/v1/bots/:id/fills', line: 559, auth: 'ownedBot', idempotent: false },
-  { method: 'GET', path: '/v1/bots/:id/settlements', line: 577, auth: 'ownedBot', idempotent: false },
-  { method: 'POST', path: '/v1/bots', line: 597, auth: 'direct', idempotent: true },
-  { method: 'POST', path: '/v1/bots/:id/actions', line: 657, auth: 'ownedBot', idempotent: true },
+  { method: 'GET', path: '/v1/strategies', auth: 'none', idempotent: false },
+  { method: 'GET', path: '/v1/capabilities', auth: 'none', idempotent: false },
+  { method: 'GET', path: '/v1/series', auth: 'direct', idempotent: false },
+  { method: 'GET', path: '/v1/backtests', auth: 'direct', idempotent: false },
+  { method: 'GET', path: '/v1/backtests/:id', auth: 'direct', idempotent: false },
+  { method: 'GET', path: '/v1/backtests/:id/result', auth: 'direct', idempotent: false },
+  { method: 'POST', path: '/v1/backtests', auth: 'direct', idempotent: true },
+  { method: 'GET', path: '/v1/bots', auth: 'direct', idempotent: false },
+  { method: 'GET', path: '/v1/bots/:id', auth: 'ownedBot', idempotent: false },
+  { method: 'GET', path: '/v1/bots/:id/fills', auth: 'ownedBot', idempotent: false },
+  { method: 'GET', path: '/v1/bots/:id/settlements', auth: 'ownedBot', idempotent: false },
+  { method: 'POST', path: '/v1/bots', auth: 'direct', idempotent: true },
+  { method: 'POST', path: '/v1/bots/:id/actions', auth: 'ownedBot', idempotent: true },
 ]
 
 /**
@@ -92,10 +93,10 @@ const SURFACE: ReadonlyArray<{
  * below can be exact in both directions: a route this app has never heard of should make somebody
  * look, and a route it has decided against should not.
  */
-const DECLINED: ReadonlyArray<{ method: string; path: string; line: number; why: string }> = [
-  { method: 'POST', path: '/v1/series', line: 384, why: 'requireOperator — trade:admin or role:admin' },
-  { method: 'POST', path: '/v1/series/:id/bars', line: 397, why: 'requireOperator — trade:admin or role:admin' },
-  { method: 'POST', path: '/v1/events', line: 726, why: 'HMAC webhook; a browser holds no signing secret' },
+const DECLINED: ReadonlyArray<{ method: string; path: string; why: string }> = [
+  { method: 'POST', path: '/v1/series', why: 'requireOperator — trade:admin or role:admin' },
+  { method: 'POST', path: '/v1/series/:id/bars', why: 'requireOperator — trade:admin or role:admin' },
+  { method: 'POST', path: '/v1/events', why: 'HMAC webhook; a browser holds no signing secret' },
 ]
 
 const client = readFileSync(here('src/lib/trade.ts'), 'utf8')
@@ -116,13 +117,16 @@ describe('the client calls only routes it has cited', () => {
     }
   })
 
-  it('cites a line for every route, in the doc comment as well as here', () => {
-    for (const route of SURFACE) {
-      assert.ok(
-        client.includes(`trade/src/server.ts:${route.line}`),
-        `${route.method} ${route.path} has no citation in src/lib/trade.ts`,
-      )
-    }
+  it('says where it read the surface from', () => {
+    // The FILE, not a line in it. A line number here was a promise this repository could not keep:
+    // it names a position in a file that a different repository is free to edit, and it went stale
+    // every time micro-trade grew an import. What is worth asserting is that the client points a
+    // reader at the source of truth; `the cited lines are…` below proves the routes are really
+    // there.
+    assert.ok(
+      client.includes('trade/src/server.ts'),
+      'src/lib/trade.ts no longer says which service source it was read from',
+    )
   })
 
   it('sends an Idempotency-Key on exactly the three mutations that require one', () => {
@@ -147,7 +151,7 @@ describe('the client calls only routes it has cited', () => {
   })
 })
 
-describe('the cited lines are the lines that register the routes', () => {
+describe('every route this bundle names is really registered by the service', () => {
   if (tradeServer === undefined) {
     // NOT a silent pass. It says which check did not run, and CI makes the absence fatal.
     it('SKIPPED: no micro-trade checkout — CI checks one out and requires this to run', () => {
@@ -164,14 +168,29 @@ describe('the cited lines are the lines that register the routes', () => {
     assert.ok(defines.length >= 14, `expected trade's route list, found ${defines.length} defines`)
   })
 
+  /**
+   * Where a route is registered, found by SEARCHING for it rather than by citing a line.
+   *
+   * This used to be a line number in the table above, and the line number is why this repository
+   * kept turning red for edits made in a different one: `micro-trade` inserted seven lines near its
+   * imports and every route below moved, so every citation here pointed at the wrong line while the
+   * routes themselves were untouched. Nothing runs this suite when that service changes, so it
+   * surfaced whenever somebody next tried to build — which is the worst possible moment.
+   *
+   * Searching costs one pass over a file already in memory and cannot go stale. What is actually
+   * worth asserting is that the route EXISTS and that its handler behaves as this bundle believes;
+   * neither of those is a fact about line 348.
+   */
+  const indexOfRoute = (method: string, path: string): number => {
+    const re = new RegExp(`^\\s{4}define\\('${method}',\\s*'${path.replace(/[/:]/g, '\\$&')}'`)
+    return lines.findIndex((l) => re.test(l))
+  }
+
   for (const route of [...SURFACE, ...DECLINED]) {
-    it(`${route.method} ${route.path} is registered at trade/src/server.ts:${route.line}`, () => {
-      // 1-indexed citation, 0-indexed array.
-      const line = lines[route.line - 1] ?? ''
-      assert.match(
-        line,
-        new RegExp(`define\\('${route.method}',\\s*'${route.path.replace(/[/:]/g, '\\$&')}'`),
-        `trade/src/server.ts:${route.line} is:\n  ${line.trim()}`,
+    it(`${route.method} ${route.path} is registered in trade/src/server.ts`, () => {
+      assert.ok(
+        indexOfRoute(route.method, route.path) >= 0,
+        `${route.method} ${route.path} is not registered in trade/src/server.ts at all`,
       )
     })
   }
@@ -203,8 +222,9 @@ describe('the cited lines are the lines that register the routes', () => {
    * like a bearer surface and `GET /v1/strategies` would too if it moved to the end. Caught by
    * this suite failing on a route whose handler plainly does not authenticate.
    */
-  const bodyOf = (line: number): string => {
-    const start = line - 1
+  const bodyOf = (method: string, path: string): string => {
+    const start = indexOfRoute(method, path)
+    assert.ok(start >= 0, `${method} ${path} is not registered in trade/src/server.ts`)
     let end = lines.length
     for (let i = start + 1; i < lines.length; i++) {
       const text = lines[i] ?? ''
@@ -221,7 +241,7 @@ describe('the cited lines are the lines that register the routes', () => {
     // one and then reasoning about a 403 that was never about authorisation — and its mirror, a
     // client withholding one from a handler that authenticates through a helper.
     for (const route of SURFACE) {
-      const body = bodyOf(route.line)
+      const body = bodyOf(route.method, route.path)
       const direct = /await authenticate\(ctx, deps\)/.test(body)
       const viaHelper = /ownedBot\(ctx, deps/.test(body)
       const actual: AuthKind = direct ? 'direct' : viaHelper ? 'ownedBot' : 'none'
@@ -256,7 +276,7 @@ describe('the cited lines are the lines that register the routes', () => {
     assert.ok(open.length >= 1, 'the unauthenticated routes have vanished from the surface')
     for (const route of open) {
       assert.doesNotMatch(
-        bodyOf(route.line),
+        bodyOf(route.method, route.path),
         /authenticate\(/,
         `${route.method} ${route.path} now authenticates; it is called with auth: false`,
       )
@@ -268,7 +288,7 @@ describe('the cited lines are the lines that register the routes', () => {
     // service: `idempotencyKeyOf` throws a BadRequestError when the header is absent.
     for (const route of SURFACE.filter((r) => r.idempotent)) {
       assert.match(
-        bodyOf(route.line),
+        bodyOf(route.method, route.path),
         /idempotencyKeyOf\(ctx\)/,
         `${route.method} ${route.path} no longer reads an idempotency key`,
       )
@@ -286,7 +306,7 @@ describe('the cited lines are the lines that register the routes', () => {
   it('the two operator routes really do require an operator, which is why they are declined', () => {
     for (const route of DECLINED.filter((r) => r.path.startsWith('/v1/series'))) {
       assert.match(
-        bodyOf(route.line),
+        bodyOf(route.method, route.path),
         /requireOperator\(principal\)/,
         `${route.method} ${route.path} no longer requires an operator`,
       )
@@ -300,7 +320,7 @@ describe('the cited lines are the lines that register the routes', () => {
     // the line it mutates and then passes against a file it never changed.
     const webhook = DECLINED.find((r) => r.path === '/v1/events')
     if (!webhook) throw new Error('the webhook is no longer declined; say why, or call it')
-    const body = bodyOf(webhook.line)
+    const body = bodyOf(webhook.method, webhook.path)
     assert.match(body, /verifyEventSignature\(raw, deps\.eventAcceptSecrets, presented\)/)
     assert.doesNotMatch(body, /authenticate\(/, 'the webhook now takes a bearer token')
   })

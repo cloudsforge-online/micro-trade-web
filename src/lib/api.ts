@@ -105,8 +105,8 @@ export class ApiError extends Error {
  * Pull the sentence, the code and the request id out of a service's error body.
  *
  * The estate's envelope is **nested** — `{error: {code, message, requestId}}`, built by
- * `errorReply()` in every service (`hub-api/src/server.ts:589`, `identity/src/server.ts:1431`,
- * `service-template/src/server.ts:342`). This function used to read it as flat, assigning
+ * `errorReply()` in every service (`hub-api/src/server.ts`, `identity/src/server.ts`,
+ * `service-template/src/server.ts`). This function used to read it as flat, assigning
  * `data.error` — an object — straight to the displayed message. Every server-side failure in
  * every app cut from this template would have rendered as `[object Object]`, with the real
  * message, the code and the request id all present in the response and all discarded. The
@@ -257,10 +257,10 @@ export interface RequestOptions {
    *
    * Every mutating route on `trade` requires one. `idempotencyKeyOf` is called at the top of each
    * of them and throws a `BadRequestError` when the header is missing or outside 8–200 characters
-   * (`trade/src/server.ts:840-848`), so a POST without it is a **400** rather than a duplicate
+   * (`trade/src/server.ts`), so a POST without it is a **400** rather than a duplicate
    * charge — the opposite of `mint`, which reads no such header anywhere. The header is not
    * optional politeness here: `POST /v1/bots/:id/actions` with `action: "start"` reserves capital
-   * at the ledger (`trade/src/bots.ts:567-579`).
+   * at the ledger (`trade/src/bots.ts`).
    *
    * `authorization` and `content-type` are set by this function AFTER these are spread, so a
    * caller cannot accidentally drop the bearer token by passing a header map of its own.
