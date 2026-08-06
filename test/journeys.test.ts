@@ -357,7 +357,7 @@ describe('BJ-TRD — Forge Trade', () => {
         assert.match(s.text(), /the position stays open/i)
         // A mark from the last tick, not a settlement. The difference is what a customer would
         // otherwise read as money they have.
-        assert.match(s.text(), /equity is a mark, not a settlement/i)
+        assert.match(s.text(), /equity figure is an estimate, not cash in hand/i)
       },
     )
   })
