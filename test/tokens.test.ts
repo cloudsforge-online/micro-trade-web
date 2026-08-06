@@ -106,11 +106,17 @@ describe('the stylesheet names only tokens that exist', () => {
       }
     })
 
-    it('the four names the brief warned about are not tokens, and the real ones are', () => {
+    it('the names the brief warned about are not tokens, and the real ones are', () => {
       // Asserted in both directions so a reader can see which is which without opening tokens.css.
-      for (const wrong of ['--cf-border', '--cf-critical', '--cf-warning', '--cf-font']) {
+      //
+      // `--cf-critical` was on this list and has been taken off it: the design-system foundation
+      // added it as a real severity token with a measured `-text` step, so enforcing its absence
+      // was pinning a fact that stopped being true. Revised rather than enforced, exactly as the
+      // upstream check above says to do.
+      for (const wrong of ['--cf-border', '--cf-warning', '--cf-font']) {
         assert.ok(!defined.has(wrong), `${wrong} is defined after all; this comment is wrong`)
       }
+      assert.ok(defined.has('--cf-critical'), '--cf-critical is the severity token; it must exist')
       for (const right of [
         '--cf-line',
         '--cf-line-strong',

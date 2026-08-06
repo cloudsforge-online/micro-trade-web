@@ -19,7 +19,8 @@
  *
  * The names that DO exist and are used below:
  *   borders   --cf-line, --cf-line-strong          (never --cf-border)
- *   states    --cf-success, --cf-warn, --cf-danger (never --cf-status-*, never --cf-critical)
+ *   states    --cf-success, --cf-warn, --cf-danger (never --cf-status-*)
+ *   severity  --cf-good, --cf-warn, --cf-critical  (each with a -text and an -ink step)
  *   radii     --cf-radius-sm, --cf-radius, --cf-radius-lg (never --cf-radius-md)
  *   spacing   --cf-space-3xs … --cf-space-3xl      (never --cf-space-1..5)
  *   type      --cf-font-sans, --cf-font-mono, --cf-font-display (never --cf-font)
