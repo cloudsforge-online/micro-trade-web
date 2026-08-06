@@ -301,7 +301,7 @@ describe('the cited lines are the lines that register the routes', () => {
     const webhook = DECLINED.find((r) => r.path === '/v1/events')
     if (!webhook) throw new Error('the webhook is no longer declined; say why, or call it')
     const body = bodyOf(webhook.line)
-    assert.match(body, /verifyEventSignature\(raw, deps\.eventAcceptSecrets, presented\)/)
+    assert.match(body, /verifyEventSignature\(raw, deps\.eventSigningSecret, presented\)/)
     assert.doesNotMatch(body, /authenticate\(/, 'the webhook now takes a bearer token')
   })
 })

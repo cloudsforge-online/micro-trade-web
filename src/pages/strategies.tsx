@@ -94,7 +94,14 @@ function StrategyCard({ strategy }: { strategy: Strategy }) {
                   {spec.default}
                   {spec.unit ? ` ${spec.unit}` : ''}
                 </code>{' '}
-                <span className="tw-params__range">
+                {/*
+                  `cf-num` as well as the range class: this span renders two bare digits beside the
+                  default above it, which IS a `cf-num`, and the design system's `.cf-num` is where
+                  `font-variant-numeric: tabular-nums` lives. Without it the two sit in different
+                  figure widths in the same row of the same card. It is the shared class rather
+                  than a local `font-variant-numeric` for the same reason everything else here is.
+                */}
+                <span className="tw-params__range cf-num">
                   ({spec.min}–{spec.max})
                 </span>
                 <span className="tw-params__help">{spec.help}</span>
