@@ -409,23 +409,39 @@ jobs:
         # silently delete the rule.
         run: test -f test/routes.test.ts && grep -q 'nginx.conf' test/routes.test.ts
 
-      - name: Every route this client calls cites the line that serves it
+      - name: Every route this client calls goes through the one cited module
         # The rule test/trade.test.ts enforces, restated so that deleting the test does not delete
-        # it. Every `/v1/...` path in the client must appear in a file that also carries a
-        # `trade/src/server.ts:<line>` citation.
+        # it.
+        #
+        # It used to count `trade/src/server.ts:<line>` citations and require at least eleven. That
+        # made it the LAST place in this repository holding line numbers open, and it would have
+        # gone red on the very commit that removed them — the count is now zero by design. A gate
+        # that fails when the thing it guards is fixed teaches people to delete the gate.
+        #
+        # What is worth restating is the property the citations were a proxy for: every /v1 call
+        # lives in src/lib/trade.ts, where the surface is documented and cross-checked against the
+        # service, and no page reaches past it.
         run: |
           set -uo pipefail
-          paths=$(grep -coE "'/v1/[^']*'" src/lib/trade.ts || true)
-          cites=$(grep -coE 'trade/src/server\.ts:[0-9]+' src/lib/trade.ts || true)
-          if [ "${cites:-0}" -lt 11 ]; then
-            echo "::error::src/lib/trade.ts carries ${cites:-0} route citations; the called surface has eleven"
+          # Counted the way test/trade.test.ts counts: OCCURRENCES, not matching lines, and
+          # backticked template literals as well as quoted ones. `grep -c` reports lines and the
+          # parameterised routes are backticked, so the old spelling saw 7 of the 11 real call
+          # sites — a threshold that only passed because it was never near the boundary.
+          paths=$(grep -oE "['\"\`](/v1/[^'\"\`]*)['\"\`]" src/lib/trade.ts |
+            sed "s/[\`'\"]//g; s/\\\${[^}]*}/:id/g" | sort -u | wc -l | tr -d ' ')
+          if [ "${paths:-0}" -lt 11 ]; then
+            echo "::error::src/lib/trade.ts calls ${paths:-0} distinct routes; the surface has eleven"
             exit 1
           fi
+          grep -q 'trade/src/server.ts' src/lib/trade.ts || {
+            echo "::error::src/lib/trade.ts no longer says which service source its surface was read from"
+            exit 1
+          }
           if grep -rn --include='*.tsx' -E "api<[^>]*>\(\s*[\`'\"]/v1/" src; then
-            echo "::error::a page calls /v1 directly; every call goes through src/lib/trade.ts, where it is cited"
+            echo "::error::a page calls /v1 directly; every call goes through src/lib/trade.ts, where it is documented"
             exit 1
           fi
-          echo "ok: ${paths:-0} route literals, ${cites:-0} citations, and no uncited call site"
+          echo "ok: ${paths:-0} route literals, all behind src/lib/trade.ts, and no uncited call site"
 
       - name: Every mutation sends an Idempotency-Key
         # trade/src/server.ts answers 400 without one, on all three mutating routes. This
