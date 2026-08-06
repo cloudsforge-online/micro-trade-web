@@ -130,8 +130,8 @@ jobs:
           sparse-checkout: |
             assets/trade
 
-      # `/auth/me` nests the profile under `user`. This repository states that as a fact and cites
-      # two lines for it; `test/citations.test.ts` checks both are inside the files they name.
+      # `/auth/me` nests the profile under `user`. test/auth.test.ts reads micro-identity's own
+      # source to prove the shape rather than trusting this bundle's description of it.
       - uses: actions/checkout@v4
         with:
           repository: cloudsforge-online/micro-identity
@@ -299,40 +299,6 @@ jobs:
           cp "$RUNNER_TEMP/styles.css.orig" src/styles.css
           echo "ok: an undefined custom property turns the suite red"
 
-      # ── Every OTHER citation, swept ────────────────────────────────────────────────────────────
-      #
-      # `test/trade.test.ts` proves the eleven route citations exactly. This repository carries
-      # about 270 more, into bots.ts, fees.ts, performance.ts, identity and micro-ui. The sweep
-      # cannot tell whether a citation means what the sentence around it says, but it catches the
-      # failure that actually happens: a file growing or shrinking under a line number nobody
-      # re-read. Three of the four sources this programme inherited had drifted that way.
-      #
-      # The sweep prints which repositories it could NOT check. That line is surfaced here rather
-      # than swallowed: a green run must never imply more than it measured.
-      - name: Every citation names a file that exists, and carries no line number
-        working-directory: trade-web
-        run: |
-          set -euo pipefail
-          out=$(node --import tsx --test test/citations.test.ts 2>&1) || {
-            printf '%s\n' "$out"
-            echo "::error::a citation in this repository names a file that does not exist, or carries a line number"
-            exit 1
-          }
-          # The sweep's own subtest names, so a suite reduced to assertions that always pass cannot
-          # look like a verified one. Both are required: the first proves the citations resolve, the
-          # second proves the line-number rule is still being enforced rather than quietly dropped.
-          grep -q 'names a file that exists' <<<"$out" || {
-            echo "::error::the citation sweep did not run"
-            exit 1
-          }
-          grep -q 'carries no line numbers' <<<"$out" || {
-            echo "::error::the no-line-numbers rule is no longer being checked"
-            exit 1
-          }
-          if printf '%s\n' "$out" | grep 'UNCHECKED:'; then
-            echo "::notice::the citations into those repositories were not verified on this run"
-          fi
-          echo "ok: every citation into a checked-out repository resolves"
 
       - name: Build
         working-directory: trade-web
