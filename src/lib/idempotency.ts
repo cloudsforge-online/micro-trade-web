@@ -41,7 +41,7 @@
  */
 import { ApiError } from './api.ts'
 
-/** How the service spells the two idempotency refusals. `trade/src/server.ts`, `:264`. */
+/** How the service spells the two idempotency refusals. `trade/src/server.ts`. */
 export const IN_FLIGHT_CODE = 'idempotency_in_flight'
 export const KEY_REUSE_CODE = 'idempotency_key_reuse'
 
@@ -80,7 +80,7 @@ function uuid(): string {
  *
  *   * a transport failure (`status: 0`) — the request may have been received and its answer lost;
  *   * any 5xx, including the service's own `503 ledger_unavailable`
- *     (`trade/src/server.ts`) and `503 rate_unavailable` (`:269-274`), both of which can
+ *     (`trade/src/server.ts`) and `503 rate_unavailable`, both of which can
  *     fire after work has partially committed;
  *   * `idempotency_in_flight`, which is the service explicitly saying "the original is still
  *     committing; come back with this key" (`trade/src/idempotency.ts`).

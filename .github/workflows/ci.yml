@@ -50,7 +50,7 @@
 #     `estate_token` fallback to `github.token` resolves.
 #   * the deep-route probe is fixed, and inverted. web-ci.yml REQUIRES an unknown path to
 #     answer 404 and names `try_files $uri /index.html` as the thing not to do; the 200 is now asked
-#     only of the optional `deep-link-path` input (:299-309), a route the app really has.
+#     only of the optional `deep-link-path` input, a route the app really has.
 #
 # So the two things that made a bespoke `check:` and `image:` unavoidable are gone. This file is
 # still not deleted, because what remains is not a workaround: `rules:` (line 360 below) was

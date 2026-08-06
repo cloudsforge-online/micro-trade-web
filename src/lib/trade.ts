@@ -40,7 +40,7 @@
  * ── Three routes exist and are deliberately NOT called from a browser ─────────────────────────
  *
  *   * `POST /v1/series` (`trade/src/server.ts`) and `POST /v1/series/:id/bars`
- *     (`trade/src/server.ts`) both call `requireOperator` (`:343`, `:356`), which demands
+ *     (`trade/src/server.ts`) both call `requireOperator`, which demands
  *     `trade:admin` or `role:admin` (`trade/src/server.ts`). Candle data is not a
  *     customer's to publish; the operator console is where that belongs.
  *   * `POST /v1/events` (`trade/src/server.ts`) is the inbound webhook. It is not a bearer
@@ -48,7 +48,7 @@
  *     unsigned caller (`trade/src/server.ts`). A browser has no business holding that
  *     secret.
  *
- * `/livez`, `/readyz` and `/metrics` (`server.ts`, `:309`, `:317`) are the platform probes and
+ * `/livez`, `/readyz` and `/metrics` (`server.ts`) are the platform probes and
  * are not wrapped here either.
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  *
@@ -363,7 +363,7 @@ export interface TradeCapabilities {
 /**
  * `GET /v1/backtests/:id/result` — `trade/src/server.ts`.
  *
- * The equity curve and the fill list. Separate from the summary at `:427` because an equity curve
+ * The equity curve and the fill list. Separate from the summary route because an equity curve
  * is decimated to a few hundred points and a fill list is unbounded: putting both into the list
  * response would make the index page pay for a chart nobody has opened.
  *
@@ -422,7 +422,7 @@ export function getStrategies(signal?: AbortSignal): Promise<{ strategies: reado
 /**
  * `GET /v1/series` — `trade/src/server.ts`.
  *
- * Authenticates (`:337`) and then lists EVERY series, not the caller's — there is no per-user
+ * Authenticates and then lists EVERY series, not the caller's — there is no per-user
  * filter, because a series is estate data rather than customer data (`listSeries`,
  * `trade/src/series.ts`). Ordered by symbol then timeframe by the service.
  */
@@ -448,7 +448,7 @@ export function listBacktests(signal?: AbortSignal): Promise<{ backtests: readon
  *
  * The status URL the 202 points at. A malformed id is a 400 (`uuidParam`,
  * `trade/src/server.ts`) and another customer's id is a **404**, not a 403
- * (`getOwnedBacktest` filters on `user_id`, and `:395` turns a null into `not found`) — the same
+ * (`getOwnedBacktest` filters on `user_id`, and a null becomes `not found`) — the same
  * answer as "no such run", so ids cannot be enumerated.
  */
 export function getBacktest(id: string, signal?: AbortSignal): Promise<{ backtest: Backtest }> {
@@ -464,7 +464,7 @@ export function getBacktest(id: string, signal?: AbortSignal): Promise<{ backtes
  * idempotency key, writes a `queued` row and enqueues a job AFTER the claim commits
  * (`trade/src/server.ts`, and the reason is in the comment there: a job enqueued inside
  * the transaction would be visible to a worker before the row it names). The reply is 202 with a
- * `location` header and a `statusUrl` in the body (`:468-472`).
+ * `location` header and a `statusUrl` in the body.
  *
  * `trade/src/backtests.ts` argues the case at length. The frozen service ran the backtest
  * inside the POST; a SIGTERM mid-run left a row marked `queued` that nothing would ever finish.
@@ -528,7 +528,7 @@ export function listBots(signal?: AbortSignal): Promise<{ bots: readonly Bot[] }
  * `GET /v1/bots/:id` — `trade/src/server.ts`.
  *
  * Authenticates through `ownedBot` (`trade/src/server.ts`), which calls `authenticate` at
- * `:741` and answers **404** for a bot that is not the caller's (`:744-745`).
+ * and answers **404** for a bot that is not the caller's.
  */
 export function getBot(id: string, signal?: AbortSignal): Promise<{ bot: Bot }> {
   return api<{ bot: Bot }>(`/v1/bots/${encodeURIComponent(id)}`, { ...(signal ? { signal } : {}) })
@@ -586,7 +586,7 @@ export function createBot(idempotencyKey: string, input: CreateBotInput): Promis
 /**
  * `POST /v1/bots/:id/actions` — `trade/src/server.ts`.
  *
- * One route with an `action` rather than three, and the service says why (`:578-585`): the three
+ * One route with an `action` rather than three, and the service says why: the three
  * share their whole precondition set, and "the idempotency key is required here too: `start`
  * reserves capital at the ledger, and a retried start without a key would be a second
  * reservation."

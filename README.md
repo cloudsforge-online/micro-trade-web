@@ -69,8 +69,7 @@ the estate has already shipped a client that sent a token to a route which never
 had to reason about a 403 that was never about authorisation.
 
 Two routes this app does **not** call are also unauthenticated in the bearer sense —
-`GET /livez` and `GET /readyz` (`trade/src/server.ts`, `:309`) — plus `GET /metrics`
-(`:317`). They are platform probes, not a browser surface.
+`GET /livez` and `GET /readyz` (`trade/src/server.ts`) — plus `GET /metrics`. They are platform probes, not a browser surface.
 
 `POST /v1/events` (`trade/src/server.ts`) makes no `authenticate()` call either, and it is the
 one that would be most dangerous to misread: the credential is an **HMAC over the raw bytes**, and
@@ -82,7 +81,7 @@ so this client does not call it.
 
 `GET /v1/bots/:id`, `.../fills`, `.../settlements` and `POST .../actions` contain **no literal
 `await authenticate(ctx, deps)`**. They call `ownedBot(ctx, deps, SCOPE)`, which authenticates at
-`trade/src/server.ts` and then answers 404 for a bot that is not the caller's (`:744-745`).
+`trade/src/server.ts` and then answers 404 for a bot that is not the caller's.
 
 micro-mint-web's route cross-check greps each handler body for `authenticate(` — correctly, for a
 service where every handler calls it directly. Run unchanged against trade, that check declares all
@@ -122,7 +121,7 @@ twice*:
 `POST /v1/backtests` validates, claims the key, writes a `queued` row and enqueues a job **after the
 claim commits** (`trade/src/server.ts` — a job enqueued inside the transaction would be
 visible to a worker before the row it names). It answers 202 with a `location` header and a
-`statusUrl` in the body (`:468-472`). `trade/src/backtests.ts` argues the case: the frozen
+`statusUrl` in the body. `trade/src/backtests.ts` argues the case: the frozen
 service ran the backtest inside the POST, and a SIGTERM mid-run left a row marked `queued` that
 nothing would ever finish.
 
@@ -324,7 +323,7 @@ Recorded rather than fixed from here, because a quiet omission is a trap for the
 **In `micro-trade`** *(reported, not touched)*
 
 * `GET /v1/backtests/:id` serves no equity curve or fill list, though both are computed and stored
-  (`trade/src/backtests.ts` versus `:227-228`). Without them a client cannot show a customer
+  (both are written by `trade/src/backtests.ts`). Without them a client cannot show a customer
   *when* a drawdown happened, only how deep it was.
 * No route reports whether `TRADE_LIVE_ENABLED` is on (`trade/src/env.ts`). A client therefore
   cannot tell a customer that starting a live bot will fail until they have already created it.

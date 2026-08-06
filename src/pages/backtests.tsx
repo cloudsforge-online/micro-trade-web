@@ -1,7 +1,7 @@
 /**
  * Your backtests.
  *
- * `GET /v1/backtests` — `trade/src/server.ts`. At most 100, newest first (`:386`), and the
+ * `GET /v1/backtests` — `trade/src/server.ts`. At most 100, newest first, and the
  * caller's own: `ownerOf` (`trade/src/server.ts`) resolves the subject from the token.
  *
  * The `userId` query parameter that route accepts is deliberately not offered here. It is honoured
