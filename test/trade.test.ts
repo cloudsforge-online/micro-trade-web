@@ -70,19 +70,19 @@ const SURFACE: ReadonlyArray<{
   auth: AuthKind
   idempotent: boolean
 }> = [
-  { method: 'GET', path: '/v1/strategies', line: 341, auth: 'none', idempotent: false },
-  { method: 'GET', path: '/v1/capabilities', line: 360, auth: 'none', idempotent: false },
-  { method: 'GET', path: '/v1/series', line: 372, auth: 'direct', idempotent: false },
-  { method: 'GET', path: '/v1/backtests', line: 418, auth: 'direct', idempotent: false },
-  { method: 'GET', path: '/v1/backtests/:id', line: 426, auth: 'direct', idempotent: false },
-  { method: 'GET', path: '/v1/backtests/:id/result', line: 446, auth: 'direct', idempotent: false },
-  { method: 'POST', path: '/v1/backtests', line: 463, auth: 'direct', idempotent: true },
-  { method: 'GET', path: '/v1/bots', line: 539, auth: 'direct', idempotent: false },
-  { method: 'GET', path: '/v1/bots/:id', line: 547, auth: 'ownedBot', idempotent: false },
-  { method: 'GET', path: '/v1/bots/:id/fills', line: 552, auth: 'ownedBot', idempotent: false },
-  { method: 'GET', path: '/v1/bots/:id/settlements', line: 570, auth: 'ownedBot', idempotent: false },
-  { method: 'POST', path: '/v1/bots', line: 590, auth: 'direct', idempotent: true },
-  { method: 'POST', path: '/v1/bots/:id/actions', line: 650, auth: 'ownedBot', idempotent: true },
+  { method: 'GET', path: '/v1/strategies', line: 348, auth: 'none', idempotent: false },
+  { method: 'GET', path: '/v1/capabilities', line: 367, auth: 'none', idempotent: false },
+  { method: 'GET', path: '/v1/series', line: 379, auth: 'direct', idempotent: false },
+  { method: 'GET', path: '/v1/backtests', line: 425, auth: 'direct', idempotent: false },
+  { method: 'GET', path: '/v1/backtests/:id', line: 433, auth: 'direct', idempotent: false },
+  { method: 'GET', path: '/v1/backtests/:id/result', line: 453, auth: 'direct', idempotent: false },
+  { method: 'POST', path: '/v1/backtests', line: 470, auth: 'direct', idempotent: true },
+  { method: 'GET', path: '/v1/bots', line: 546, auth: 'direct', idempotent: false },
+  { method: 'GET', path: '/v1/bots/:id', line: 554, auth: 'ownedBot', idempotent: false },
+  { method: 'GET', path: '/v1/bots/:id/fills', line: 559, auth: 'ownedBot', idempotent: false },
+  { method: 'GET', path: '/v1/bots/:id/settlements', line: 577, auth: 'ownedBot', idempotent: false },
+  { method: 'POST', path: '/v1/bots', line: 597, auth: 'direct', idempotent: true },
+  { method: 'POST', path: '/v1/bots/:id/actions', line: 657, auth: 'ownedBot', idempotent: true },
 ]
 
 /**
@@ -93,9 +93,9 @@ const SURFACE: ReadonlyArray<{
  * look, and a route it has decided against should not.
  */
 const DECLINED: ReadonlyArray<{ method: string; path: string; line: number; why: string }> = [
-  { method: 'POST', path: '/v1/series', line: 377, why: 'requireOperator — trade:admin or role:admin' },
-  { method: 'POST', path: '/v1/series/:id/bars', line: 390, why: 'requireOperator — trade:admin or role:admin' },
-  { method: 'POST', path: '/v1/events', line: 719, why: 'HMAC webhook; a browser holds no signing secret' },
+  { method: 'POST', path: '/v1/series', line: 384, why: 'requireOperator — trade:admin or role:admin' },
+  { method: 'POST', path: '/v1/series/:id/bars', line: 397, why: 'requireOperator — trade:admin or role:admin' },
+  { method: 'POST', path: '/v1/events', line: 726, why: 'HMAC webhook; a browser holds no signing secret' },
 ]
 
 const client = readFileSync(here('src/lib/trade.ts'), 'utf8')
