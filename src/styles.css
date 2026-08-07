@@ -25,6 +25,15 @@
  *   spacing   --cf-space-3xs … --cf-space-3xl      (never --cf-space-1..5)
  *   type      --cf-font-sans, --cf-font-mono, --cf-font-display (never --cf-font)
  *
+ * ── ONE SEVERITY, TWO STEPS, SINCE @cloudsforge/ui 1.1 ────────────────────────────────────────
+ *
+ * Each severity now ships a non-text value and a text one: `--cf-warn` is for borders and fills,
+ * `--cf-warn-text` for a word or a glyph, and the pair for critical is `--cf-critical`
+ * (3.38:1, a border colour) and `--cf-critical-text` (4.63:1, the one text may use). So
+ * `--cf-critical` IS a token now — it was not when this file was written — and it is still the
+ * wrong one to set `color:` from. `--cf-success` and `--cf-danger` survive as aliases of the two
+ * text steps, which is why every use of them below is already right in both roles.
+ *
  * A `var(--undefined, #hex)` is not a repair either: it is a hard-coded colour wearing a token's
  * clothes, and it stops following the substrate the moment somebody switches the ash ramp. There
  * is one literal colour in this file and it is `transparent`.
@@ -63,20 +72,16 @@ body {
 
 /* ---- the frame -------------------------------------------------------- */
 
-.tw-skip {
-  position: absolute;
-  left: -9999px;
-  top: 0;
-  z-index: 100;
-  padding: var(--cf-space-sm) var(--cf-space-lg);
-  background: var(--cf-accent);
-  color: var(--cf-accent-ink);
-  border-radius: 0 0 var(--cf-radius) 0;
-}
-
-.tw-skip:focus {
-  left: 0;
-}
+/*
+ * `.tw-skip` USED TO BE HERE, AND ITS DELETION IS THE POINT RATHER THAN A TIDY-UP.
+ *
+ * This surface had one of the estate's two skip links; the other fifteen had none, so the design
+ * system took it — `.cf-skip` in `ui/packages/ui/src/ui.css`, rendered by `<SkipLink />`. Keeping a
+ * local copy would mean this one surface's bypass drifted from everybody else's, which is the whole
+ * class of problem 1.1 exists to end. The shared one is also better in the way that matters: it is
+ * moved off the viewport with a transform rather than to `left: -9999px`, so it stays in the
+ * accessibility tree and in the tab order rather than only in the layout.
+ */
 
 .wt-subnav {
   position: sticky;

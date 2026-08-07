@@ -310,8 +310,13 @@ Recorded rather than fixed from here, because a quiet omission is a trap for the
 **In this repository**
 
 * No equity curve, for the reason above: the data exists and is not served.
-* No `robots.txt` and no sitemap. The strategy catalogue is a public page worth indexing and
-  nothing currently helps a crawler find it.
+* ~~No `robots.txt` and no sitemap.~~ Closed. `nginx.conf` now serves both, composed from `$host`
+  per request so no hostname is baked into the image, and `test/sitemap.test.ts` regenerates
+  `robots.txt` from `@cloudsforge/ui/sitemap` and checks every `<loc>` against this repository's own
+  route table. The sitemap lists ONLY `/` — the one route `src/lib/routes.ts` marks public, because
+  `GET /v1/strategies` is the one endpoint the service leaves unauthenticated. It is deliberately
+  NOT the estate sitemap: `$host` here is already `trade.<apex>`, so the shared `sitemapXml()` would
+  compose `foresight.trade.<apex>`, which nothing resolves. That document belongs to the apex.
 * The bot detail page polls only when the customer presses a button. A running bot's equity moves
   on the service's tick; this app does not follow it live.
 
