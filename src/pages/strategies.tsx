@@ -27,7 +27,12 @@ export function StrategiesPage() {
   return (
     <section className="tw-page">
       <header className="tw-page__head">
-        <h1 className="tw-page__title">Strategies</h1>
+        {/*
+          Not "Strategies". A heading that names the noun the page is made of tells a first-time
+          visitor nothing they did not already know from clicking the link, and this is the front
+          page of the product — the one place where the reader has not yet decided to be here.
+        */}
+        <h1 className="tw-page__title">Test a trading rule before you risk money on it</h1>
         <p className="tw-page__lede">
           Ten trading rules, every one of them implemented here and measured by the same engine.
           Choose a rule, run it across the bars you hold, and read what it did before you put
@@ -115,7 +120,12 @@ function StrategyCard({ strategy }: { strategy: Strategy }) {
         that a rule states what it gets wrong.
       */}
       <p className="tw-card__weakness">
-        <span className="tw-card__weakness-label">Where it fails</span> {strategy.weakness}
+        {/*
+          The colon is in the text rather than in a `::after`, so a screen reader announces the
+          break between the label and the sentence the same way a sighted reader sees it. Without
+          it this runs together as "WHERE IT FAILS TAKES THE FULL DRAWDOWN…".
+        */}
+        <span className="tw-card__weakness-label">Where it fails:</span> {strategy.weakness}
       </p>
       {strategy.params.length > 0 ? (
         <dl className="tw-params">
