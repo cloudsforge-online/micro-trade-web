@@ -20,7 +20,7 @@ export function BacktestsPage() {
   const runs = useResource(
     (signal) => listBacktests(signal),
     (data) => data.backtests.length,
-    'Your backtests could not be loaded.',
+    'We could not read your runs.',
   )
 
   return (
@@ -32,18 +32,18 @@ export function BacktestsPage() {
         </Link>
       </header>
 
-      {runs.state === 'loading' && <Loading label="Loading your backtests" />}
+      {runs.state === 'loading' && <Loading label="Reading your runs" />}
       {runs.state === 'forbidden' && <Forbidden notice={runs.error ?? undefined} />}
       {runs.state === 'failed' && runs.error && (
         <Failed notice={runs.error} onRetry={runs.reload} />
       )}
       {runs.state === 'empty' && (
         <Empty
-          title="You have not run a backtest yet"
-          hint="Pick a rule from the catalogue and a series to run it over. Nothing is charged for a backtest."
+          title="No runs on this account"
+          hint="Choose a rule and the bars to put it through, and the report will be waiting here. Running one costs you nothing."
           action={
             <Link className="cf-btn" to="/backtests/new">
-              Run one
+              Start one
             </Link>
           }
         />
@@ -56,7 +56,8 @@ export function BacktestsPage() {
             output of a simulation over bars that have already happened.
           */}
           <p className="tw-table__caption">
-            Return and drawdown below are modelled results. <ModelledTag />
+            Both figures in this table come out of a simulation over bars that already closed.{' '}
+            <ModelledTag />
           </p>
           <div className="tw-scroll">
             <table className="tw-table">

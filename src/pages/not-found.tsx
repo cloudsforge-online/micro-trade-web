@@ -20,10 +20,10 @@ export function NotFoundPage() {
         <span className="wt-state__icon" aria-hidden="true">
           ◇
         </span>
-        <p className="wt-state__title">There is nothing at this address</p>
+        <p className="wt-state__title">Forge Trade has no page at this address</p>
         <p className="wt-state__hint">
-          The server answered 404 for it, which is the truth — this is the app shell rendered
-          underneath that status, not a page pretending the address exists.
+          The server said so with a genuine 404, and what you are reading sits underneath that
+          answer. Nothing here is pretending the address works. Try one of these instead.
         </p>
         <div className="wt-state__action">
           {NAV.map((item) => (

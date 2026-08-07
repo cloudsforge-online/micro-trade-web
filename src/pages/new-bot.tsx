@@ -48,19 +48,19 @@ export function NewBotPage() {
   const catalogue = useResource(
     (signal) => getStrategies(signal),
     (data) => data.strategies.length,
-    'The strategy catalogue could not be loaded.',
+    'We could not read the list of strategies.',
   )
   const series = useResource(
     (signal) => getSeries(signal),
     (data) => data.series.length,
-    'The available price series could not be loaded.',
+    'We could not read which price series are loaded.',
   )
   // Unauthenticated, and asked BEFORE the form is submitted. This used to be unknowable — the note
   // below said so — and a customer learned that live was off by pressing start.
   const capabilities = useResource(
     (signal) => getCapabilities(signal),
     () => 1,
-    'Whether this deployment allows live trading could not be checked.',
+    'We could not check whether live trading is switched on here.',
   )
 
   const strategies = catalogue.data?.strategies ?? []
@@ -103,7 +103,7 @@ export function NewBotPage() {
   }
 
   if (catalogue.state === 'loading' || series.state === 'loading') {
-    return <Loading label="Loading the catalogue" />
+    return <Loading label="Reading the strategies and series" />
   }
   if (catalogue.state === 'forbidden') return <Forbidden notice={catalogue.error ?? undefined} />
   if (series.state === 'forbidden') return <Forbidden notice={series.error ?? undefined} />
@@ -119,7 +119,8 @@ export function NewBotPage() {
       <header className="tw-page__head">
         <h1 className="tw-page__title">Create a bot</h1>
         <p className="tw-page__lede">
-          This creates a draft. Nothing is reserved and nothing trades until you start it.
+          Setting a bot up puts nothing at stake. It sits as a draft, holding no money and
+          placing no trades, until you press start on the next screen.
         </p>
       </header>
 
@@ -136,7 +137,7 @@ export function NewBotPage() {
               submit.reset()
             }}
           />
-          <span className="tw-field__help">For you, on this list. 1–120 characters.</span>
+          <span className="tw-field__help">Something you will recognise on the list. Up to 120 characters.</span>
         </label>
 
         <fieldset className="tw-fieldset">
@@ -153,9 +154,10 @@ export function NewBotPage() {
               }}
             />
             <span>
-              <strong>Paper.</strong> No money moves. It is still charged 10 bps of fee and 5 bps of
-              slippage on every fill — the same as a backtest — so that comparing the two means
-              something.
+              <strong>Paper.</strong> Nothing leaves your account. Even so, it is
+              still charged 10 bps of fee and 5 bps of
+              slippage on every trade — matching a backtest exactly — so that setting one against
+              the other tells you something real.
             </span>
           </label>
           <label className="tw-radio">
@@ -170,24 +172,27 @@ export function NewBotPage() {
               }}
             />
             <span>
-              <strong>Live.</strong> Starting it reserves your allocation at the ledger before the
-              bot moves. Gains above the high-water mark are charged the performance fee below.
+              <strong>Live.</strong> Pressing start puts your allocation on hold at the ledger
+              before a single trade goes out. Whatever it makes above its high-water mark carries
+              the performance fee set below.
             </span>
           </label>
           {mode === 'live' && capabilities.data?.capabilities.liveTrading.enabled === false && (
             <p className="tw-field__note tw-field__note--warn" role="alert">
-              <strong>Live trading is switched off on this deployment.</strong>{' '}
+              <strong>Live trading is turned off here.</strong>{' '}
               {/* The engine's own sentence, verbatim, so this and the 409 cannot disagree. */}
               {capabilities.data.capabilities.liveTrading.refusal ??
                 'Starting a live bot will be refused.'}{' '}
-              You can still create this bot, but it will not trade until the switch is on.
+              Set the bot up by all means; it will sit there without trading until whoever runs
+              this deployment turns live trading back on.
             </p>
           )}
           {mode === 'live' && capabilities.data === null && (
             <p className="tw-field__note tw-field__note--warn" role="status">
-              <strong>Whether live trading is switched on could not be checked.</strong> The kill
-              switch is read on every tick, and starting a live bot while it is off is refused with
-              a 409. This says "unknown" rather than "fine" — an unchecked switch is not an open one.
+              <strong>Whether live trading is on here could not be checked.</strong> That switch
+              is consulted on every single tick, and a live bot asked to start while it is off gets
+              turned away. We are calling this unknown rather than fine: a switch nobody could read
+              is not a switch anybody has seen open.
             </p>
           )}
         </fieldset>
@@ -279,8 +284,8 @@ export function NewBotPage() {
             }}
           />
           <span className="tw-field__help">
-            Whole Shards, sent as a decimal string. Must be positive. On a live bot this becomes a
-            ledger reservation the moment you start it.
+            The capital this bot works with, in whole Shards above zero. On a live bot it turns
+            into a ledger hold the instant you start it, and it comes back when you stop.
           </span>
         </label>
 
@@ -299,8 +304,9 @@ export function NewBotPage() {
             }}
           />
           <span className="tw-field__help">
-            {DEFAULT_FEE_BPS} bps — 15% — by default, charged only on gains above the bot’s
-            high-water mark. It applies to a live bot; a paper bot is never billed.
+            {DEFAULT_FEE_BPS} bps, which is 15%, unless you lower it. We take it out of ground
+            gained above this bot’s own high-water mark and out of nothing else. Live bots only —
+            a paper bot never sees a bill.
           </span>
         </label>
 
@@ -322,9 +328,7 @@ export function NewBotPage() {
             {submit.busy ? 'Creating…' : 'Create this bot'}
           </button>
           <span className="tw-form__hint">
-            It is created as a draft — the column defaults to it (
-            <code className="cf-num">trade/src/migrations.ts</code>). Starting it is a separate,
-            deliberate action.
+            You get a draft. Starting it is a separate press, on a separate screen.
           </span>
         </div>
       </form>

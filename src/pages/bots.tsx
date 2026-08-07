@@ -17,7 +17,7 @@ export function BotsPage() {
   const bots = useResource(
     (signal) => listBots(signal),
     (data) => data.bots.length,
-    'Your bots could not be loaded.',
+    'We could not read your bots.',
   )
 
   return (
@@ -37,23 +37,24 @@ export function BotsPage() {
         assessed against a HIGH-WATER MARK."
       */}
       <p className="tw-claim">
-        <strong>A paper bot costs nothing.</strong> A live bot is charged a performance fee — 15% by
-        default — on gains above its high-water mark, and on nothing else. It is never charged on
-        the capital you committed, and never twice for the same climb.
+        <strong>A bot on paper costs nothing to run.</strong> On a live bot we take a performance
+        fee, 15% unless you set it lower, and only out of the ground it gains above its own
+        high-water mark. The money you allocated is never touched, the mark never falls back, and
+        the same climb is therefore never billed twice. A bot that goes nowhere is never billed.
       </p>
 
-      {bots.state === 'loading' && <Loading label="Loading your bots" />}
+      {bots.state === 'loading' && <Loading label="Reading your bots" />}
       {bots.state === 'forbidden' && <Forbidden notice={bots.error ?? undefined} />}
       {bots.state === 'failed' && bots.error && (
         <Failed notice={bots.error} onRetry={bots.reload} />
       )}
       {bots.state === 'empty' && (
         <Empty
-          title="You have no bots"
-          hint="A paper bot runs the same rule with the same fee and slippage as a backtest, on bars as they close. It costs nothing."
+          title="Nothing is running for you"
+          hint="A paper bot takes a rule you have already measured and works it against bars as they close, under identical costs, so the two records can be laid side by side. It is free to run."
           action={
             <Link className="cf-btn" to="/bots/new">
-              Create one
+              Set one up
             </Link>
           }
         />
@@ -69,7 +70,7 @@ export function BotsPage() {
                 <th scope="col">State</th>
                 <th scope="col">Strategy</th>
                 <th scope="col">Allocated</th>
-                <th scope="col">Equity (marked)</th>
+                <th scope="col">Equity (estimated)</th>
                 <th scope="col">Fee owed</th>
               </tr>
             </thead>

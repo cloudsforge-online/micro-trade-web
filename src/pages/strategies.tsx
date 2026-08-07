@@ -21,7 +21,7 @@ export function StrategiesPage() {
   const strategies = useResource(
     (signal) => getStrategies(signal),
     (data) => data.strategies.length,
-    'The strategy catalogue could not be loaded.',
+    'We could not read the list of strategies.',
   )
 
   return (
@@ -29,8 +29,9 @@ export function StrategiesPage() {
       <header className="tw-page__head">
         <h1 className="tw-page__title">Strategies</h1>
         <p className="tw-page__lede">
-          Ten rules, each of which this service can actually evaluate. Test one against a series
-          you already have before you commit anything to it.
+          Ten trading rules, every one of them implemented here and measured by the same engine.
+          Choose a rule, run it across the bars you hold, and read what it did before you put
+          anything behind it.
         </p>
       </header>
 
@@ -45,14 +46,46 @@ export function StrategiesPage() {
         this product exists to let somebody make".
       */}
       <p className="tw-claim">
-        <strong>Fees and slippage are charged.</strong> A backtest costs{' '}
-        <code className="cf-num">10&nbsp;bps</code> in fee and{' '}
-        <code className="cf-num">5&nbsp;bps</code> in slippage by default, and paper trading is
-        charged exactly the same, because a strategy that only works for free does not work. This
-        is not an exchange: there is no order book and nothing here makes a market.
+        <strong>Trading costs are charged, never assumed away.</strong> Both sides of every fill
+        pay <code className="cf-num">10&nbsp;bps</code> of fee and give up{' '}
+        <code className="cf-num">5&nbsp;bps</code> to slippage unless you change them, and a paper
+        bot is billed the identical amounts.
+        A strategy that only works for free does not work.
+        This is also not an exchange: there is no order book here, and nothing you do sets a price
+        for anyone else.
       </p>
 
-      {strategies.state === 'loading' && <Loading label="Loading the catalogue" />}
+      <section>
+        <h2 className="tw-section__title">How a rule earns its place</h2>
+        <ol className="tw-notes__list">
+          <li>
+            <strong>Measure it.</strong> A backtest acts on the bar after the one that triggered
+            it, fills at that bar’s open, and pays the fee and the slippage going in and coming
+            out. You get return set against buying and holding the same asset, the worst
+            peak-to-trough fall, how much of the time it held a position, win rate, profit factor,
+            CAGR, Sharpe, Sortino and Calmar — with the equity curve drawn, and the same points
+            listed underneath so you can copy them out.
+          </li>
+          <li>
+            <strong>Repeat it.</strong> Each run keeps the seed it used and a digest of what it
+            produced. Feed in the same bars with the same seed and the digest matches, so a result
+            can be checked rather than argued about. Change only the seed and you find out whether
+            an edge survives a few basis points of execution noise.
+          </li>
+          <li>
+            <strong>Promote what holds up.</strong> A paper bot runs your rule against bars as
+            they close, under the same costs, so its record is directly comparable with the
+            backtest it came from. A live bot reserves its allocation at the ledger before it
+            trades, and is charged only on gains above its own high-water mark.
+          </li>
+        </ol>
+        <p className="tw-note">
+          Bars are loaded into a named series by an operator. This service subscribes to no market
+          feed and holds no balances of its own.
+        </p>
+      </section>
+
+      {strategies.state === 'loading' && <Loading label="Reading the strategy list" />}
       {strategies.state === 'forbidden' && <Forbidden notice={strategies.error ?? undefined} />}
       {strategies.state === 'failed' && strategies.error && (
         <Failed notice={strategies.error} onRetry={strategies.reload} />
@@ -103,11 +136,11 @@ function StrategyCard({ strategy }: { strategy: Strategy }) {
           ))}
         </dl>
       ) : (
-        <p className="tw-params__none">No parameters. It does the one thing it says.</p>
+        <p className="tw-params__none">Nothing to tune. This rule has one behaviour and holds it.</p>
       )}
       <p className="tw-card__action">
         <Link className="cf-btn" to={`/backtests/new?strategy=${encodeURIComponent(strategy.id)}`}>
-          Backtest this
+          Measure this rule
         </Link>
       </p>
     </li>

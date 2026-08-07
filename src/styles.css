@@ -667,6 +667,19 @@ body {
   color: var(--cf-success);
 }
 
+/*
+ * THE BORDER AND THE WORD TAKE DIFFERENT STEPS OF THE SAME COLOUR, AND THAT IS THE 1.1 RULE.
+ *
+ * A border is a non-text element and needs 3:1; a word is text and needs 4.5:1. The design system
+ * now ships both steps for each severity — `--cf-warn` for the first and `--cf-warn-text` for the
+ * second (`ui/packages/ui/src/tokens.css`) — so a badge that used one value for both was
+ * either failing the text criterion or over-lightening its own border.
+ *
+ * `--cf-success` and `--cf-danger` need no such edit anywhere in this file: 1.1 keeps them as
+ * ALIASES of the text steps (`ui/packages/ui/src/tokens.css`), deliberately, so that every
+ * existing `color: var(--cf-danger)` in the estate became AA-compliant without the repository
+ * being touched, while the same token as a border still clears the 3:1 floor.
+ */
 .tw-badge--warn {
   border-color: var(--cf-warn);
   color: var(--cf-warn);

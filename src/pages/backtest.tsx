@@ -53,7 +53,7 @@ export function BacktestPage() {
   const run = useResource(
     (signal) => getBacktest(id, signal),
     () => 1,
-    'That backtest could not be loaded.',
+    'We could not read that run.',
     [id],
   )
 
@@ -63,14 +63,14 @@ export function BacktestPage() {
   const result = useResource(
     (signal) => getBacktestResult(id, signal),
     () => 1,
-    'The equity curve could not be loaded.',
+    'We could not read the curve for this run.',
     [id],
   )
 
-  if (run.state === 'loading') return <Loading label="Loading the run" />
+  if (run.state === 'loading') return <Loading label="Reading the run" />
   if (run.state === 'forbidden') return <Forbidden notice={run.error ?? undefined} />
   if (run.error) return <Failed notice={run.error} onRetry={run.reload} />
-  if (!run.data) return <Loading label="Loading the run" />
+  if (!run.data) return <Loading label="Reading the run" />
 
   const backtest = run.data.backtest
   const tone = backtestTone(backtest.status)
@@ -110,7 +110,7 @@ export function BacktestPage() {
         </Fact>
         <Fact label="Bars read">
           {backtest.fromT === null ? (
-            <span className="tw-absent">not yet — the run has not read a bar</span>
+            <span className="tw-absent">none yet — this run has not opened the series</span>
           ) : (
             <span className="cf-num">
               {barTime(backtest.fromT)} → {barTime(backtest.toT)}
@@ -130,16 +130,16 @@ export function BacktestPage() {
 
       {backtest.status === 'complete' && (
         <>
-          <h2 className="tw-section__title">Equity</h2>
+          <h2 className="tw-section__title">What the money did</h2>
           {result.state === 'loading' ? (
-            <p className="tw-note">Loading the curve…</p>
+            <p className="tw-note">Drawing the curve…</p>
           ) : result.data ? (
             <EquityCurve points={result.data.equity} />
           ) : (
             // The summary loaded and the curve did not. Say which, rather than showing an empty
             // chart that reads as "this run did nothing".
             <p className="tw-note" role="status">
-              {result.error?.message ?? 'The curve is not available for this run.'}
+              {result.error?.message ?? 'There is no curve stored against this run.'}
             </p>
           )}
         </>
@@ -149,17 +149,17 @@ export function BacktestPage() {
 
       {backtest.status === 'failed' && (
         <p className="tw-error" role="alert">
-          <strong>This run did not finish.</strong>{' '}
-          {backtest.error ?? 'The service recorded no reason, which is itself worth reporting.'}
+          <strong>This run stopped before it produced anything.</strong>{' '}
+          {backtest.error ?? 'No reason was written against it — please tell us, because that is a fault in its own right.'}
         </p>
       )}
 
       {(backtest.status === 'queued' || backtest.status === 'running') && (
         <div className="tw-pending" role="status">
           <p>
-            <strong>Nothing has been computed yet.</strong> The run was accepted and queued; a
-            worker picks it up under a lease keyed on this run, so a deploy in the middle of it
-            costs a restart rather than the result.
+            <strong>Nothing has been computed yet.</strong> Your run is accepted and in the queue.
+            A worker takes it under a lease tied to this run alone, so if the service restarts
+            part-way through, the run begins again rather than being lost.
           </p>
           <button type="button" className="cf-btn" onClick={run.reload}>
             Check again
@@ -172,7 +172,7 @@ export function BacktestPage() {
       )}
 
       <p className="tw-page__back">
-        <Link to="/backtests">← All backtests</Link>
+        <Link to="/backtests">← Back to every run</Link>
       </p>
     </section>
   )
@@ -181,7 +181,7 @@ export function BacktestPage() {
 function Notes({ notes }: { notes: readonly string[] }) {
   return (
     <div className="tw-notes" role="note">
-      <h2 className="tw-notes__title">What was changed about this run</h2>
+      <h2 className="tw-notes__title">Adjustments the engine made before it ran</h2>
       <ul className="tw-notes__list">
         {notes.map((note) => (
           <li key={note}>{note}</li>
@@ -194,7 +194,7 @@ function Notes({ notes }: { notes: readonly string[] }) {
 function Report({ metrics, backtest }: { metrics: BacktestMetrics; backtest: Backtest }) {
   return (
     <div className="tw-report">
-      <h2 className="tw-report__title">Result</h2>
+      <h2 className="tw-report__title">What the run found</h2>
 
       {/* The label before the first figure, never after the last one. */}
       <ModelledNote>{MODELLED_LONG}</ModelledNote>
@@ -203,73 +203,73 @@ function Report({ metrics, backtest }: { metrics: BacktestMetrics; backtest: Bac
         <Metric
           label="Total return"
           value={percent(metrics.totalReturnBps)}
-          note={`Against buy-and-hold's ${percent(metrics.holdReturnBps)} over the same bars.`}
+          note={`Holding the asset untouched across the same bars gave ${percent(metrics.holdReturnBps)}.`}
         />
         <Metric
           label="Max drawdown"
           value={percent(metrics.maxDrawdownBps)}
-          note="Largest peak-to-trough fall, as a proportion of the peak. The answer to “how bad did it get”."
+          note="The deepest fall from a high point to the low that followed it, as a share of that high. This is how bad it got at its worst."
         />
         <Metric
           label="Fees paid"
           value={`${shards(metrics.feesPaidShards)} Shards`}
-          note={`At ${backtest.feeBps} bps a fill, plus ${backtest.slippageBps} bps of slippage on the price.`}
+          note={`${backtest.feeBps} bps taken on each side of each trade, on top of ${backtest.slippageBps} bps of price moving away from you.`}
         />
         <Metric
           label="Trades"
           value={String(metrics.trades)}
-          note={`${metrics.wins} won, ${metrics.losses} lost, ${percent(metrics.winRateBps)} of closed trades won.`}
+          note={`${metrics.wins} closed in profit and ${metrics.losses} closed at a loss — ${percent(metrics.winRateBps)} of them ahead.`}
         />
         <Metric
           label="Profit factor"
           value={profitFactor(metrics)}
-          note="Gross profit over gross loss. Break-even is 1.00×."
+          note="Everything won divided by everything lost. At 1.00× the two cancel out."
         />
         <Metric
           label="Exposure"
           value={percent(metrics.exposureBps)}
-          note="Share of bars spent holding a position. A rule that is rarely in the market carries a different risk from one that always is."
+          note="How much of the time it held anything at all. A rule that sits out most bars carries risk of a different shape from one that never lets go."
         />
         <Metric
           label="Best trade"
           value={`${signedShards(metrics.bestTradeShards)} Shards`}
-          note="Realised, on a close."
+          note="Taken at the moment the position closed."
         />
         <Metric
           label="Worst trade"
           value={`${signedShards(metrics.worstTradeShards)} Shards`}
-          note="Realised, on a close."
+          note="Taken at the moment the position closed."
         />
       </div>
 
-      <h3 className="tw-report__subtitle">Statistics about the distribution</h3>
+      <h3 className="tw-report__subtitle">Reward set against the ride</h3>
       <p className="tw-report__note">
-        These four are ratios, not amounts. They are annualised from the bar interval so a figure
-        computed on five-minute bars is comparable with one computed on daily bars — a comparison
-        that is only ever approximate, because high-frequency returns are far from normal.
+        These four are ratios rather than sums of money. Each is scaled up to a yearly figure from
+        whatever bar length the series uses, so a result off five-minute bars can be set beside one
+        off daily bars. Treat that comparison as rough: returns measured over short intervals do
+        not behave the way the arithmetic assumes.
       </p>
       <div className="tw-metrics">
-        <Metric label="CAGR" value={rate(metrics.cagr)} note="Compound annual growth, modelled." />
-        <Metric label="Sharpe" value={ratio(metrics.sharpe)} note="Return over total volatility." />
+        <Metric label="CAGR" value={rate(metrics.cagr)} note="Growth restated as a yearly compounding rate." />
+        <Metric label="Sharpe" value={ratio(metrics.sharpe)} note="Gain measured against how much it moved about, up and down alike." />
         <Metric
           label="Sortino"
           value={ratio(metrics.sortino)}
-          note="Return over downside volatility only, against a zero target."
+          note="The same idea, counting only the falls, since upward movement is not what worries anyone."
         />
         <Metric
           label="Calmar"
           value={ratio(metrics.calmar)}
-          note="CAGR over max drawdown."
+          note="Yearly growth set against the worst fall it had to sit through."
         />
       </div>
 
-      <h3 className="tw-report__subtitle">The equity curve is not served</h3>
+      <h3 className="tw-report__subtitle">Where it started and where it ended</h3>
       <p className="tw-report__note">
-        This run computed a decimated equity curve and the full fill list, and stored both. Neither
-        is selected by any route on <code className="cf-num">trade</code>, so there is nothing here
-        to draw from and this page does not draw one: a curve interpolated between the start and
-        end equity would be a picture of two numbers pretending to be a hundred. Reported to
-        micro-trade.
+        The metrics above were worked out across every bar, and the curve you can see was then
+        thinned to roughly six hundred points so it could be stored and drawn. The digest at the
+        top of this page covers the stored output: hand the same bars and the same seed to another
+        run and you should get that digest back.
       </p>
       <dl className="tw-facts">
         <Fact label="Start equity">

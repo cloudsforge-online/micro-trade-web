@@ -53,12 +53,12 @@ export function NewBacktestPage() {
   const catalogue = useResource(
     (signal) => getStrategies(signal),
     (data) => data.strategies.length,
-    'The strategy catalogue could not be loaded.',
+    'We could not read the list of strategies.',
   )
   const series = useResource(
     (signal) => getSeries(signal),
     (data) => data.series.length,
-    'The available price series could not be loaded.',
+    'We could not read which price series are loaded.',
   )
 
   const strategies = catalogue.data?.strategies ?? []
@@ -105,7 +105,7 @@ export function NewBacktestPage() {
   }
 
   if (catalogue.state === 'loading' || series.state === 'loading') {
-    return <Loading label="Loading the catalogue" />
+    return <Loading label="Reading the strategies and series" />
   }
   if (catalogue.state === 'forbidden') return <Forbidden notice={catalogue.error ?? undefined} />
   if (series.state === 'forbidden') return <Forbidden notice={series.error ?? undefined} />
@@ -121,8 +121,9 @@ export function NewBacktestPage() {
       <header className="tw-page__head">
         <h1 className="tw-page__title">Run a backtest</h1>
         <p className="tw-page__lede">
-          One rule, one series, one seed. The run is queued and answered with a status page — it
-          does not happen inside this request.
+          Pick a rule, the bars to run it over, and the costs it has to clear. Pressing the button
+          hands the job to a worker and takes you to a status page; the arithmetic happens there,
+          not in this request.
         </p>
       </header>
 
@@ -179,10 +180,9 @@ export function NewBacktestPage() {
           </select>
           {available.length === 0 && (
             <span className="tw-field__help">
-              No series has bars yet. Publishing them is an operator action —{' '}
-              <code className="cf-num">POST /v1/series</code> requires{' '}
-              <code className="cf-num">trade:admin</code>, so there is nothing to do about it from
-              here.
+              Nothing has bars loaded into it. Bars are pushed in by an operator rather than pulled
+              from a market feed, so ask whoever runs this deployment to publish a series before
+              you try again.
             </span>
           )}
         </label>
@@ -220,8 +220,8 @@ export function NewBacktestPage() {
         <fieldset className="tw-fieldset">
           <legend className="tw-fieldset__legend">What the run is charged</legend>
           <p className="tw-fieldset__note">
-            These are not zero by default and they are not decoration: a rule that only clears its
-            costs at zero cost does not clear them.
+            None of these start at zero, and none of them is decoration. A rule that only gets
+            ahead when trading is free has not got ahead.
           </p>
 
           <label className="tw-field">
@@ -238,8 +238,8 @@ export function NewBacktestPage() {
               }}
             />
             <span className="tw-field__help">
-              Whole Shards, sent as a decimal string. 100 Shards is one US dollar. Must be
-              positive.
+              The cash the rule begins with. Whole Shards, greater than zero — a Shard is one US
+              cent, so 100,000 here stands for a thousand dollars.
             </span>
           </label>
 
@@ -258,9 +258,9 @@ export function NewBacktestPage() {
               }}
             />
             <span className="tw-field__help">
-              Charged on every fill. The service’s default is {DEFAULT_FEE_BPS} bps. Set it to 0 and
-              the result stops being comparable with a paper bot, which is charged{' '}
-              {DEFAULT_FEE_BPS}.
+              Taken on the way in and again on the way out, {DEFAULT_FEE_BPS} bps unless you say
+              otherwise. Drop it to zero and this run can no longer be compared with a paper bot,
+              which always pays {DEFAULT_FEE_BPS}.
             </span>
           </label>
 
@@ -279,8 +279,10 @@ export function NewBacktestPage() {
               }}
             />
             <span className="tw-field__help">
-              The price moves against you by this much on every fill. Default{' '}
-              {DEFAULT_SLIPPAGE_BPS} bps.
+              How far the price shifts away from you as each trade goes through — you buy dearer
+              and sell cheaper by this much. {DEFAULT_SLIPPAGE_BPS} bps unless you change it, with
+              a small seeded wobble around it so a rule that survives only one exact fill price
+              shows itself.
             </span>
           </label>
 
@@ -299,9 +301,9 @@ export function NewBacktestPage() {
               }}
             />
             <span className="tw-field__help">
-              Kept so the run can be reproduced exactly. The default is 0 rather than a random
-              number, deliberately — an omitted seed that randomised would produce a run nobody
-              could repeat.
+              Fixes the execution wobble, so the same bars and the same seed give back the same
+              digest every time. It stays at 0 unless you move it — a value chosen at random would
+              leave you with an answer nobody, including you, could get twice.
             </span>
           </label>
         </fieldset>
@@ -324,8 +326,8 @@ export function NewBacktestPage() {
             {submit.busy ? 'Queueing…' : 'Queue this backtest'}
           </button>
           <span className="tw-form__hint">
-            This queues a run. It does not compute one — the next screen is where the answer
-            arrives.
+            A worker takes it from here. The next screen tracks it and holds the report when it
+            lands.
           </span>
         </div>
       </form>

@@ -57,17 +57,17 @@ import {
 export function BotPage() {
   const { id = '' } = useParams()
 
-  const bot = useResource((signal) => getBot(id, signal), () => 1, 'That bot could not be loaded.', [id])
+  const bot = useResource((signal) => getBot(id, signal), () => 1, 'We could not read that bot.', [id])
   const fills = useResource(
     (signal) => listFills(id, signal),
     (data) => data.fills.length,
-    'This bot’s fills could not be loaded.',
+    'We could not read what this bot has traded.',
     [id],
   )
   const settlements = useResource(
     (signal) => listSettlements(id, signal),
     (data) => data.settlements.length,
-    'This bot’s fee settlements could not be loaded.',
+    'We could not read what this bot has been charged.',
     [id],
   )
 
@@ -85,10 +85,10 @@ export function BotPage() {
     }
   }
 
-  if (bot.state === 'loading') return <Loading label="Loading the bot" />
+  if (bot.state === 'loading') return <Loading label="Reading the bot" />
   if (bot.state === 'forbidden') return <Forbidden notice={bot.error ?? undefined} />
   if (bot.error) return <Failed notice={bot.error} onRetry={bot.reload} />
-  if (!bot.data) return <Loading label="Loading the bot" />
+  if (!bot.data) return <Loading label="Reading the bot" />
 
   const record = bot.data.bot
   const tone = botTone(record.status)
@@ -113,7 +113,7 @@ export function BotPage() {
           <span className="tw-note__icon" aria-hidden="true">
             ▲
           </span>
-          <strong>The last tick did nothing.</strong> {record.lastError}
+          <strong>Its most recent pass placed nothing.</strong> {record.lastError}
         </p>
       )}
 
@@ -129,7 +129,7 @@ export function BotPage() {
         <Fact label="Position">
           <span className="cf-num">{shards(record.position)}</span>
         </Fact>
-        <Fact label="Equity, marked">
+        <Fact label="Equity, estimated">
           <span className="cf-num">{shards(record.equity)} Shards</span>
         </Fact>
         <Fact label="High-water mark">
@@ -151,7 +151,7 @@ export function BotPage() {
         <Fact label="Ledger reservation">
           {record.reservationEntryId === null ? (
             <span className="tw-absent">
-              none — a paper bot never reserves, and a live one reserves on start
+              nothing held — paper bots never hold anything, and a live one takes its hold at start
             </span>
           ) : (
             <span className="cf-num">{record.reservationEntryId}</span>
@@ -160,22 +160,22 @@ export function BotPage() {
       </dl>
 
       <p className="tw-report__note">
-        <strong>Equity is a mark, not a settlement.</strong> A tick writes it from the price the
-        service could get at the time, against a position that is still open. The performance fee is
-        assessed against the high-water mark above and never against the capital you committed —
-        which is what stops the same climb being charged for twice.
+        <strong>The equity figure is an estimate, not cash in hand.</strong> Each pass records it
+        from whatever price was available at that moment, against a position still open. The
+        performance fee is worked out against the high-water mark above, never against the capital
+        you put in — which is precisely what stops one climb being billed twice.
       </p>
 
-      <h2 className="tw-section__title">Fills</h2>
-      {fills.state === 'loading' && <Loading label="Loading fills" />}
+      <h2 className="tw-section__title">Every trade it made</h2>
+      {fills.state === 'loading' && <Loading label="Reading its trades" />}
       {fills.state === 'forbidden' && <Forbidden notice={fills.error ?? undefined} />}
       {fills.state === 'failed' && fills.error && (
         <Failed notice={fills.error} onRetry={fills.reload} />
       )}
       {fills.state === 'empty' && (
         <Empty
-          title="No fills yet"
-          hint="A fill is booked when the rule fires on a closed bar. A bot that has not traded is not a bot that is broken."
+          title="It has not traded"
+          hint="A trade is written down only when the rule fires on a bar that has closed. Quiet is a verdict, not a fault — some rules wait a long while."
         />
       )}
       {fills.state === 'ok' && fills.data && (
@@ -190,7 +190,7 @@ export function BotPage() {
                 <th scope="col">Quantity</th>
                 <th scope="col">Shards</th>
                 <th scope="col">Fee</th>
-                <th scope="col">Why</th>
+                <th scope="col">What triggered it</th>
               </tr>
             </thead>
             <tbody>
@@ -218,16 +218,16 @@ export function BotPage() {
         </div>
       )}
 
-      <h2 className="tw-section__title">Fee settlements</h2>
-      {settlements.state === 'loading' && <Loading label="Loading settlements" />}
+      <h2 className="tw-section__title">What it has been charged</h2>
+      {settlements.state === 'loading' && <Loading label="Reading its charges" />}
       {settlements.state === 'forbidden' && <Forbidden notice={settlements.error ?? undefined} />}
       {settlements.state === 'failed' && settlements.error && (
         <Failed notice={settlements.error} onRetry={settlements.reload} />
       )}
       {settlements.state === 'empty' && (
         <Empty
-          title="Nothing has been charged"
-          hint="A settlement exists only when equity rose above the high-water mark in a period. A paper bot never produces one."
+          title="You owe nothing on this bot"
+          hint="A charge appears only when a period ends with equity above the high-water mark. Paper bots never produce one at all."
         />
       )}
       {settlements.state === 'ok' && settlements.data && (
@@ -268,7 +268,7 @@ export function BotPage() {
       )}
 
       <p className="tw-page__back">
-        <Link to="/bots">← All bots</Link>{' '}
+        <Link to="/bots">← Back to every bot</Link>{' '}
         <span className="cf-num tw-dim">{shortId(record.id)}</span>
       </p>
     </section>
@@ -296,8 +296,8 @@ function Actions({
     <div className="tw-actions">
       {terminal ? (
         <p className="tw-actions__note">
-          This bot is stopped, which is terminal. It cannot be restarted — create a new one. Its
-          fills and settlements stay here.
+          This bot has been stopped, and stopping is final. Build a new one if you want the rule
+          running again; everything it traded and everything it was charged stays on this page.
         </p>
       ) : (
         <>
@@ -321,13 +321,14 @@ function Actions({
             Stop
           </button>
           <p className="tw-actions__note">
-            <strong>Pause is not a flatten.</strong> The position stays open, by design. Stop is
-            terminal, settles the final fee, and cannot be undone.
+            <strong>Pause is not a flatten.</strong> Whatever it bought,
+            the position stays open — that is deliberate, not an oversight. Stopping is final: it
+            works out the last fee owed and cannot be taken back.
             {bot.mode === 'live' && (
               <>
                 {' '}
-                Starting a live bot reserves {shards(bot.allocation)} Shards at the ledger before it
-                moves.
+                Starting this one puts {shards(bot.allocation)} Shards on hold at the ledger
+                before it trades anything.
               </>
             )}
           </p>

@@ -36,9 +36,9 @@ export const MODELLED = 'Modelled — not a promise.'
 
 /** The longer form, for the one place per screen that explains rather than labels. */
 export const MODELLED_LONG =
-  'These figures are a simulation over bars that have already happened, charged the fee and ' +
-  'slippage shown. They describe the past. They are not a forecast, and nothing here implies a ' +
-  'return.'
+  'Every figure here comes from replaying bars that have already closed, with the fee and the ' +
+  'slippage shown taken off each trade. It is a record of what a rule would have done, on prices ' +
+  'that are already history. Read none of it as a forecast.'
 
 /* ══════════════════════════════ time ══════════════════════════════ */
 
