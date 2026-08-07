@@ -388,7 +388,7 @@ body {
 .tw-card__weakness-label {
   display: inline-block;
   margin-right: var(--cf-space-2xs);
-  color: var(--cf-warn);
+  color: var(--cf-warn-text);
   font-size: var(--cf-text-xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -628,7 +628,7 @@ body {
 }
 
 .tw-note__icon {
-  color: var(--cf-warn);
+  color: var(--cf-warn-text);
 }
 
 .tw-error {
@@ -682,7 +682,7 @@ body {
  */
 .tw-badge--warn {
   border-color: var(--cf-warn);
-  color: var(--cf-warn);
+  color: var(--cf-warn-text);
 }
 
 .tw-badge--crit {
