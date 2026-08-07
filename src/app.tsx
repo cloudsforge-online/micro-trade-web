@@ -19,6 +19,7 @@
  * `user_id` in the query, so another customer's bot is a 404 (`trade/src/bots.ts`).
  */
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { ScrollToTop } from './components/scroll-to-top.tsx'
 import { AppShell } from './components/shell.tsx'
 import { AuthProvider, ProtectedRoute } from './lib/auth.tsx'
 import { placementIsKnown } from './lib/hosts.ts'
@@ -36,6 +37,7 @@ export function App() {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <AuthProvider>
         <Routes>
           <Route element={<AppShell unregistered={unregistered} />}>
