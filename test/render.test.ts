@@ -205,6 +205,107 @@ describe('this is not an exchange, and the vocabulary stays out', () => {
   })
 })
 
+/**
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * NO PAGE COUNTS THE CATALOGUE — docs/ecosystem/32-roadmap-ui-and-content.md §4.3.
+ *
+ * §1.1 is the rule the rest of this file already keeps: "No number goes on a page that is not
+ * checkable against something real. A figure is admissible if it is read at runtime out of a
+ * response the page has already fetched, or if a test binds it to the source constant it
+ * describes." Both admissible forms are in use here. The fee and the slippage on the front page
+ * are the second form — `describe('fees and slippage are visible…')` above binds `10&nbsp;bps`
+ * and `5&nbsp;bps` straight to `DEFAULT_FEE_BPS` and `DEFAULT_SLIPPAGE_BPS`. The strategy cards
+ * are the first form: they are drawn from the `GET /v1/strategies` body, so however many arrive
+ * is however many are shown.
+ *
+ * The lede was neither. It said "Ten trading rules, every one of them implemented here", and it
+ * was true — `GET /v1/strategies` returned exactly ten, measured 2026-08-07 — and nothing
+ * anywhere held it to that. It was the only figure on this page with no binding of either kind,
+ * sitting one paragraph above two that had one.
+ *
+ * ── Why the count is FORBIDDEN and not PINNED ─────────────────────────────────────────────────
+ *
+ * §4.3's judgement, followed here: "Prefer removing the claim over guarding it." A test asserting
+ * "Ten" would bind this page to a catalogue that lives in `trade/src/catalog.ts` — another
+ * repository, and one whose entry list is expected to grow. Adding an eleventh strategy there
+ * would then redden a suite here, in a repository that neither owns the catalogue nor can fix it,
+ * and the cheapest way out of a red suite you do not own is to delete the assertion. So the count
+ * is removed from the page and this scan keeps it out. The rendered cards remain the only
+ * statement of quantity, and they cannot disagree with the response they were built from.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ */
+describe('the size of the catalogue is stated by the cards and by nothing else', () => {
+  /**
+   * A quantity in front of the noun the catalogue is made of.
+   *
+   * The optional `\w+\s+` between them catches "ten trading rules" and "12 different strategies".
+   * `&nbsp;` is accepted as a separator because this page already writes numbers that way, and a
+   * count typed as `10&nbsp;rules` would otherwise walk straight through.
+   *
+   * Articles are deliberately absent: "a rule" and "one rule at a time" are English, and a scan
+   * that fired on English is a scan somebody switches off rather than satisfies.
+   */
+  const COUNT = String.raw`(?:zero|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|\d+)`
+  const NOUN = String.raw`(?:rules?|strateg(?:y|ies)|signals?|indicators?)`
+  const COUNTED_CATALOGUE = new RegExp(
+    String.raw`\b${COUNT}(?:\s|&nbsp;)+(?:\w+(?:\s|&nbsp;)+)?${NOUN}\b`,
+    'i',
+  )
+
+  it('the pattern matches the lede it was written for, and not ordinary prose', () => {
+    // The guard on the guard. A pattern that has stopped matching the original defect leaves
+    // every assertion below green for no reason at all.
+    assert.match('Ten trading rules, every one of them implemented here.', COUNTED_CATALOGUE)
+    assert.match('We ship 10 strategies.', COUNTED_CATALOGUE)
+    assert.match('Eleven rules', COUNTED_CATALOGUE)
+    assert.match('10&nbsp;rules', COUNTED_CATALOGUE)
+    assert.doesNotMatch(
+      'Every trading rule here is implemented and measured by the same engine.',
+      COUNTED_CATALOGUE,
+    )
+    assert.doesNotMatch('Choose a rule, run it across the bars you hold', COUNTED_CATALOGUE)
+    assert.doesNotMatch('pay 10&nbsp;bps of fee', COUNTED_CATALOGUE)
+  })
+
+  it('no page states how many trading rules there are', () => {
+    for (const page of PAGES) {
+      assert.doesNotMatch(
+        rendered(`src/pages/${page}`),
+        COUNTED_CATALOGUE,
+        `${page} counts the catalogue. The list is served by GET /v1/strategies and defined in ` +
+          'trade/src/catalog.ts, which this repository does not own; let the rendered cards be ' +
+          'the count.',
+      )
+    }
+  })
+
+  it('index.html, which is where a crawler reads the product, counts nothing either', () => {
+    assert.doesNotMatch(rendered('index.html'), COUNTED_CATALOGUE, 'index.html counts the catalogue')
+  })
+
+  it('the lede makes the claim that survives a catalogue of any size', () => {
+    const source = read('src/pages/strategies.tsx')
+    assert.match(
+      source,
+      /Every trading rule here is implemented and measured by the same engine/,
+      'the front page no longer says that every rule it lists is actually implemented',
+    )
+  })
+
+  it('and the cards are still drawn from the response rather than from a literal', () => {
+    // The removal is only honest while the page really does render whatever arrived. A hard-coded
+    // card list would put the count back on the screen in a form no scan of prose can see.
+    const source = read('src/pages/strategies.tsx')
+    assert.match(source, /useResource\(/, 'the page no longer fetches the catalogue')
+    assert.match(source, /getStrategies\(signal\)/, 'the page no longer calls GET /v1/strategies')
+    assert.match(
+      source,
+      /strategies\.data\.strategies\.map\(/,
+      'the cards are no longer mapped from the fetched list',
+    )
+  })
+})
+
 describe('the catalogue states what each rule gets wrong', () => {
   it('a strategy card cannot be drawn without its weakness', () => {
     // `weakness` is required on every catalogue entry upstream (trade/src/catalog.ts), and
