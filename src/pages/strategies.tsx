@@ -33,10 +33,23 @@ export function StrategiesPage() {
           page of the product — the one place where the reader has not yet decided to be here.
         */}
         <h1 className="tw-page__title">Test a trading rule before you risk money on it</h1>
+        {/*
+          NO COUNT OF RULES IN THE LEDE. It said "Ten trading rules", which was true — measured
+          2026-08-07, `GET /v1/strategies` returned exactly ten — and pinned by nothing. The fee
+          and the slippage on this same page ARE pinned, by `test/render.test.ts`, straight to
+          `DEFAULT_FEE_BPS` and `DEFAULT_SLIPPAGE_BPS`; the rule count had no such binding, so it
+          was the one figure here that could go quietly wrong when `trade/src/catalog.ts` gained
+          or lost an entry.
+
+          It is removed rather than guarded. A test asserting "ten" would pin this page to a
+          catalogue that is expected to grow, and would turn adding a strategy upstream into a red
+          suite in a repository that does not own it. The cards below already state the quantity,
+          and they state it from the response, which is the only version of the number that cannot
+          be wrong.
+        */}
         <p className="tw-page__lede">
-          Ten trading rules, every one of them implemented here and measured by the same engine.
-          Choose a rule, run it across the bars you hold, and read what it did before you put
-          anything behind it.
+          Every trading rule here is implemented and measured by the same engine. Choose a rule,
+          run it across the bars you hold, and read what it did before you put anything behind it.
         </p>
       </header>
 
