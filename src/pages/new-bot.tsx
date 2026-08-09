@@ -271,7 +271,23 @@ export function NewBotPage() {
         )}
 
         <label className="tw-field">
-          <span className="tw-field__label">Allocation (Shards)</span>
+          {/*
+            The LABEL says US cents; the field, the state, the request body and the units on the
+            wire are all unchanged. This said "Allocation (Shards)" until SHARD was retired, and a
+            new-bot form is the last place a user is invited to denominate something new — an
+            invitation to fund a position in an asset the estate no longer issues.
+
+            US cents is not a re-basing. SHARD has `decimals: 0` and the peg was a hundred Shards
+            to the dollar, so the integer a user types means exactly what it meant before and the
+            worked example below is the same money it always was.
+
+            Read surfaces still print "Shards" over amounts the ledger really does hold in SHARD —
+            `src/pages/bot.tsx`, `bots.tsx`, `components/equity.tsx`. That is deliberate and is
+            micro-org#226's to move: relabelling a figure the ledger records as SHARD would be a
+            false statement about money, whereas relabelling a box a user has not filled in yet is
+            not. Expect the two to disagree until #226 lands.
+          */}
+          <span className="tw-field__label">Allocation (US cents)</span>
           <input
             className="cf-input cf-num"
             inputMode="numeric"
@@ -284,8 +300,9 @@ export function NewBotPage() {
             }}
           />
           <span className="tw-field__help">
-            The capital this bot works with, in whole Shards above zero. On a live bot it turns
-            into a ledger hold the instant you start it, and it comes back when you stop.
+            The capital this bot works with, in whole US cents above zero — 100,000 here is a
+            thousand dollars. On a live bot it turns into a ledger hold the instant you start it,
+            and it comes back when you stop.
           </span>
         </label>
 
