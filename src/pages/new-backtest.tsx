@@ -225,7 +225,21 @@ export function NewBacktestPage() {
           </p>
 
           <label className="tw-field">
-            <span className="tw-field__label">Starting cash (Shards)</span>
+            {/*
+              The LABEL says US cents; the field, the state, the request body and the units on the
+              wire are all unchanged. This said "Starting cash (Shards)" until SHARD was retired,
+              and a new-backtest form is one of the last two places a user is invited to denominate
+              something new in an asset the estate no longer issues.
+
+              Nothing is re-based. The old help text already said a Shard is one US cent — SHARD
+              has `decimals: 0` and the peg was a hundred to the dollar — so the integer a user
+              types means exactly what it meant before, and the worked example is untouched.
+
+              The report this run produces still prints Shards over figures the service returns as
+              `feesPaidShards` and friends (`src/pages/backtest.tsx`). Those are micro-org#226's:
+              a wire field is not copy, and the two will disagree until it lands.
+            */}
+            <span className="tw-field__label">Starting cash (US cents)</span>
             <input
               className="cf-input cf-num"
               inputMode="numeric"
@@ -238,8 +252,8 @@ export function NewBacktestPage() {
               }}
             />
             <span className="tw-field__help">
-              The cash the rule begins with. Whole Shards, greater than zero — a Shard is one US
-              cent, so 100,000 here stands for a thousand dollars.
+              The cash the rule begins with. Whole US cents, greater than zero — 100,000 here
+              stands for a thousand dollars.
             </span>
           </label>
 
