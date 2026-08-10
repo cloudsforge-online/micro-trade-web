@@ -29,6 +29,8 @@
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  */
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, it, test } from 'node:test'
 import {
   AccountMenu,
@@ -40,6 +42,7 @@ import {
 import { createElement as h } from 'react'
 import { App } from '../src/app.tsx'
 import { PRODUCT, hosts } from '../src/lib/hosts.ts'
+import { NAV } from '../src/lib/routes.ts'
 import * as fx from './fixtures.ts'
 import { withScreen, type Routes, type Screen } from './dom.ts'
 
@@ -250,5 +253,112 @@ describe('the mining control in the bar', () => {
         'the mining control uses the vocabulary of being paid',
       )
     })
+  })
+})
+
+/* ── the strip of sections ──────────────────────────────────────────────────────────────────── */
+
+/**
+ * THE ROW OF SECTIONS UNDER THE BAR IS THE SHARED ONE, READ OFF THE RENDERED DOCUMENT.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * WHY THE DOM ASSERTION IS THE LOAD-BEARING ONE AND THE STYLESHEET ASSERTION IS NOT
+ *
+ * A source-text check can prove `.wt-subnav*` is gone from `src/styles.css`. That is true of a
+ * shell which still renders `<nav className="wt-subnav">` — and THAT state is strictly worse than
+ * the one before this change: a strip with no rules at all, rather than a duplicated one. It is
+ * also invisible to `tokens.test.ts` (which reads names, not selectors), to `base-layer.test.ts`
+ * (which reads the `body` rule), to `tsc`, and to every screenshot taken on a machine with a warm
+ * cache. Only mounting the app and reading the class off the landmark closes it.
+ *
+ * So both are asserted, in that order of importance: reverting `src/components/shell.tsx` alone
+ * turns the first three red and leaves the stylesheet one green.
+ *
+ * ── The trap this file walked past ────────────────────────────────────────────────────────────
+ *
+ * Grepped before writing these, and recorded because the absence is the finding: this repository
+ * had NO test that selected `.wt-subnav__link`, `.wt-subnav` or `.is-active`. Eleven siblings
+ * shared this strip and at least one had a test walking the old class, which matches nothing once
+ * the prefix becomes `cf-` — a suite that goes green by asserting over an empty NodeList. There was
+ * nothing here to break, and the checks below are the ones that make the next such rename loud
+ * rather than silent: `assert.equal(links.length, NAV.length)` cannot pass on nothing.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ */
+describe('the strip of sections, as it is actually rendered', () => {
+  const CATALOGUE: Routes = { 'GET /v1/strategies': { body: { strategies: [fx.strategy()] } } }
+
+  const atIndex = async (body: (s: Screen) => Promise<void>) =>
+    withScreen(h(App), { url: 'https://trade.cloudsforge.online/', routes: CATALOGUE }, async (s) => {
+      await s.settle(20)
+      await body(s)
+    })
+
+  it('is the SHARED landmark, labelled in this surface’s own words', async () => {
+    await atIndex(async (s) => {
+      const strips = s.document.querySelectorAll('nav.cf-subnav')
+      assert.equal(strips.length, 1, 'expected exactly one shared sub-nav landmark')
+      const strip = strips[0] as Element
+      // The wording is this app's, not the design system's. `SubNav` takes it as a prop precisely
+      // so that sharing a strip does not mean renaming anybody's sections.
+      assert.equal(strip.getAttribute('aria-label'), 'Sections')
+      assert.ok(strip.querySelector('.cf-subnav__inner'), 'the scrolling inner box is missing')
+      // And the private copy is gone from the DOCUMENT, not merely from the stylesheet.
+      assert.equal(
+        s.document.querySelectorAll('.wt-subnav, [class*="wt-subnav__"]').length,
+        0,
+        'the private strip is still being rendered',
+      )
+    })
+  })
+
+  it('carries every section from the route table, on the shared link class', async () => {
+    await atIndex(async (s) => {
+      const links = [...s.document.querySelectorAll('nav.cf-subnav a')]
+      // Against NAV rather than against a number, so adding a seventh section does not pass by
+      // being uncounted — and so this can never be satisfied by an empty strip.
+      assert.equal(links.length, NAV.length, 'the strip and the route table disagree')
+      assert.deepEqual(
+        links.map((l) => s.textOf(l)),
+        NAV.map((n) => n.label),
+      )
+      for (const link of links) {
+        const cls = link.getAttribute('class') ?? ''
+        assert.ok(
+          cls.split(/\s+/).includes('cf-subnav__link'),
+          `a section link reads class="${cls}"`,
+        )
+        assert.ok(!cls.includes('wt-subnav'), `a section link still carries a local class: "${cls}"`)
+      }
+    })
+  })
+
+  it('marks the section being read with the shared modifier, not `is-active`', async () => {
+    await atIndex(async (s) => {
+      const current = [...s.document.querySelectorAll('.cf-subnav__link--current')]
+      assert.equal(current.length, 1, 'exactly one section is the one being read')
+      assert.equal(s.textOf(current[0]), 'Strategies', 'the index is not marking Strategies')
+      /*
+       * `is-active` was the local spelling and the design system does not declare it. Scoped to the
+       * strip rather than to the document: a section link asking for a class nobody declares renders
+       * as an ordinary link — no ink, no underline, no weight — and reports nothing at all. That is
+       * the silent half of this rename, and it is the half a typecheck cannot see.
+       */
+      assert.equal(s.document.querySelectorAll('nav.cf-subnav .is-active').length, 0)
+    })
+  })
+
+  it('leaves no private copy of the strip in this stylesheet', () => {
+    /*
+     * Comments stripped first — the same treatment `tokens.test.ts` and `base-layer.test.ts` give
+     * this file, and for the same reason: the tombstone left where these rules were NAMES them, in
+     * order to record what moved and what the surface gained. A scan of the raw text would match
+     * the explanation and fail a correct stylesheet, which is a check that can only be satisfied by
+     * deleting its own reason.
+     */
+    const css = readFileSync(fileURLToPath(new URL('../src/styles.css', import.meta.url)), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+    assert.doesNotMatch(css, /\.wt-subnav/, 'the private sub-nav rules are still declared here')
+    // Nor layered back over the shared one, one declaration at a time, which is a copy again.
+    assert.doesNotMatch(css, /\.cf-subnav/, 'this stylesheet overrides the shared sub-nav')
   })
 })

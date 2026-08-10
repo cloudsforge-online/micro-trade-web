@@ -16,6 +16,7 @@ import {
   CookieBanner,
   MainRegion,
   SkipLink,
+  SubNav,
   miningOnHub,
 } from '@cloudsforge/ui'
 import { applyHead, surfaceMeta } from '@cloudsforge/ui/seo'
@@ -72,23 +73,53 @@ export function AppShell({ unregistered = false }: { unregistered?: boolean }) {
         mining={miningOnHub(hosts().hub)}
       />
       {/*
-        The sub-nav is sticky at exactly `var(--cf-bar-h)` — the bar's own height token, not a
-        number copied out of it. When the bar's height changes, this moves with it.
+        THE STRIP OF SECTIONS, AND IT IS THE SHARED ONE NOW.
+
+        This app wrote its own — `.wt-subnav`, `.wt-subnav__inner`, `.wt-subnav__link`, sticky at
+        `var(--cf-bar-h)` with an `__inner` bounded at `var(--cf-max-w)` — and it was one of ELEVEN
+        copies of the same strip in the estate, under eight class prefixes, all plainly from one
+        original. It was one of the better copies: it had `overflow-x: auto` and
+        `white-space: nowrap`, so it scrolled on a phone instead of breaking its labels mid-word
+        the way four of the eleven did, and its measure already agreed with the bar's. That is the
+        sharp half of the finding rather than a reason to keep it — the fix existed here, was
+        correct, and could not reach the other ten, because there was nothing for it to travel
+        through. `SubNav` is that thing.
+
+        WHAT MOVING IT CHANGES, on this surface specifically:
+
+          * the current section is marked in THREE channels rather than two. `.wt-subnav__link
+            .is-active` used ink and a 2px underline; `.cf-subnav__link--current` adds
+            `font-weight: 600`. The underline is drawn in `--cf-accent`, which is a per-product hue
+            — trade's is `#2a9e93` — so a reader who separates no hues was being told which section
+            they were on by one signal that had gone grey and one that never varied. Weight
+            survives both.
+          * the spacing scale steps back up. The links were padded `--cf-space-md --cf-space-sm`
+            against the shared `--cf-space-lg --cf-space-md`, so this row sat tighter than the same
+            row on every surface a reader reaches it from — which is exactly the seam the shared
+            bar directly above exists to remove.
+          * the links get a focus ring. There was no `:focus-visible` rule here at all and no
+            global one in this stylesheet, so a keyboard reader tabbing the sections fell back to
+            the user agent's; `.cf-subnav__link:focus-visible` draws it in `--cf-accent` at
+            `outline-offset: -2px`, which is what keeps it from being clipped by the scroll box.
+
+        The label stays this app's own wording, and the links stay here: `SubNav` takes the wording
+        as a prop and the markup as children precisely so that sharing a strip does not mean
+        renaming anybody's sections or teaching a design system about react-router.
       */}
-      <nav className="wt-subnav" aria-label="Sections">
-        <div className="wt-subnav__inner">
-          {NAV.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              className={({ isActive }) => `wt-subnav__link${isActive ? ' is-active' : ''}`}
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </div>
-      </nav>
+      <SubNav label="Sections">
+        {NAV.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.to === '/'}
+            className={({ isActive }) =>
+              `cf-subnav__link${isActive ? ' cf-subnav__link--current' : ''}`
+            }
+          >
+            {item.label}
+          </NavLink>
+        ))}
+      </SubNav>
       <DocumentMeta />
       <MainRegion className="wt-main">
         {/*
