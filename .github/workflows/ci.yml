@@ -596,10 +596,24 @@ jobs:
         # Comments are stripped first, for the same reason the nginx step strips them: the
         # stylesheet's own header QUOTES the property names it forbids in order to explain why.
         # A grep over the raw file matches the explanation and fails a correct stylesheet.
+        #
+        # `critical` LEFT THIS LIST ON 2026-08-10, and the removal is the interesting part. It was
+        # refused as an invented name, and it was one — but micro-ui has since defined the whole
+        # family, and `git show origin/main:packages/ui/src/tokens.css` on that date declares
+        # `--cf-critical`, `--cf-critical-text`, `--cf-critical-wash`, `--cf-critical-ink` and
+        # `--cf-critical-edge`. The header of src/styles.css already said so; this grep did not,
+        # so it refused five real tokens and pushed a stylesheet towards the wrong colour for a
+        # refusal. The other names below were re-checked against the same file the same day and
+        # are all still absent, `--cf-font[^-]` included — `--cf-font-sans`, `-mono` and
+        # `-display` are real, and the character class is what tells them apart.
+        #
+        # This half of the check only ever catches the names somebody has already got wrong once.
+        # `test/tokens.test.ts` is the half that reads the real token file and therefore the half
+        # that can catch a NEW invention; a name dropped from here is still covered there.
         run: |
           set -uo pipefail
           css=$(perl -0pe 's{/\*.*?\*/}{}gs' src/styles.css)
-          if printf '%s\n' "$css" | grep -nE 'var\(--cf-(border|radius-md|space-[1-5][^a-z0-9-]|status-(good|warn|crit)|critical|warning|font[^-])'; then
+          if printf '%s\n' "$css" | grep -nE 'var\(--cf-(border|radius-md|space-[1-5][^a-z0-9-]|status-(good|warn|crit)|warning|font[^-])'; then
             echo "::error::that custom property does not exist in tokens.css; see the header of src/styles.css"
             exit 1
           fi
