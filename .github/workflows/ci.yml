@@ -215,16 +215,33 @@ jobs:
             echo "::error::the route cross-check did not run against trade/src/server.ts"
             exit 1
           }
-          # Thirteen called routes plus three declined ones, each looked up in the service.
+          # ── TWO FLOORS, BECAUSE THERE ARE TWO SUPPORTED SERVICES ──────────────────────────────
+          #
+          # This bundle serves a micro-trade with an order book and one without: `src/lib/orderbook.tsx`
+          # treats an absent `orderBook` capability block as "no exchange here" and
+          # `test/terminal.test.ts` proves it then makes no /v1/exchange request at all. So the
+          # count to expect depends on which service was checked out, and the floor is read from
+          # the checkout rather than assumed — `test/trade.test.ts` refuses a PARTIAL exchange in
+          # either case, which is where a renamed or missing route still shows up.
           #
           # DEDUPED before counting. node:test names each subtest twice — once as it runs and once
           # in the summary — so a raw `grep -c` doubles the figure. The threshold still passed, so
           # nothing was broken; the LOG LINE was simply wrong, which is the defect this whole
           # repository is built to avoid. A number nobody can reconcile is a number somebody
           # eventually reasons from.
+          if [ -f ../trade/src/matching.ts ]; then
+            floor=33   # the original sixteen plus the seventeen the order book adds
+          else
+            floor=16   # a micro-trade that predates the order book: thirteen called, three declined
+            grep -q 'predates the order book' <<<"$out" || {
+              echo "::error::micro-trade has no matching.ts and the suite did not say the exchange checks stood down"
+              exit 1
+            }
+            echo "note: this micro-trade predates the order book; $floor routes to check, not 33"
+          fi
           count=$(printf '%s\n' "$out" | grep -oE '[A-Z]+ /v1/[^ ]+ is registered in trade/src/server\.ts' | sort -u | wc -l | tr -d ' ')
-          [ "$count" -ge 16 ] || {
-            echo "::error::only $count routes were checked against the service; the surface has sixteen"
+          [ "$count" -ge "$floor" ] || {
+            echo "::error::only $count routes were checked against the service; this checkout has $floor"
             exit 1
           }
           echo "ok: $count routes verified against the service that serves them"
@@ -263,6 +280,88 @@ jobs:
             exit 1
           fi
           echo "ok: naming a route the service does not serve turns the suite red, so a pass is evidence"
+
+      # ══════════════════════════════════════════════════════════════════════════════════════════
+      # THE EXCHANGE VOCABULARY AND THE MONEY ARITHMETIC, CHECKED AGAINST THE SAME SERVICE.
+      #
+      # `test/glossary.test.ts` proves every member of every vocabulary the engine can PUT ON THE
+      # WIRE — order types, time in force, self-trade prevention, order status, order event kind,
+      # market status, transfer direction and status — is explained somewhere on this surface, and
+      # `test/exchange-units.test.ts` proves the browser's fee, notional and unit arithmetic is the
+      # same arithmetic `trade/src/money.ts` performs. Both skip themselves without a checkout, for
+      # the same reason the route check does, so on the runner the skip has to be accounted for
+      # exactly: FORBIDDEN against a micro-trade that has an order book, REQUIRED against one that
+      # does not. Either way the step says which of the two it saw, because "the vocabulary was
+      # verified" and "there was no vocabulary to verify" are different sentences and only one of
+      # them is evidence.
+      # ══════════════════════════════════════════════════════════════════════════════════════════
+      - name: The exchange vocabulary was checked against the real service
+        working-directory: trade-web
+        run: |
+          set -euo pipefail
+          test -f ../trade/src/server.ts || {
+            echo "::error::micro-trade was not checked out; the vocabulary was never verified"
+            exit 1
+          }
+          # A NAMED CLAIM IS NOT A CHECKED ONE. Both suites skip themselves when the checkout has no
+          # order book in it, and node:test prints the describe's name on the skip line — so the
+          # original `grep -q "$claim"` was satisfied by the very skip it existed to forbid. The
+          # colour codes are stripped first for the same reason: a `# SKIP` wearing an escape
+          # sequence is a `# SKIP` this grep would have missed.
+          out=$(node --import tsx --test test/glossary.test.ts test/exchange-units.test.ts 2>&1 | perl -pe 's/\e\[[0-9;]*m//g' || true)
+          if [ -f ../trade/src/matching.ts ]; then want=ran; else want=skipped; fi
+          for claim in \
+            'the glossary covers exactly what micro-trade serves' \
+            'the browser and the engine do the same arithmetic'
+          do
+            grep -q "$claim" <<<"$out" || {
+              echo "::error::\"$claim\" never ran, so nothing was checked against the service"
+              exit 1
+            }
+            if grep -qE "$claim.*# SKIP" <<<"$out"; then got=skipped; else got=ran; fi
+            [ "$got" = "$want" ] || {
+              echo "::error::\"$claim\" $got against a checkout where it should have $want"
+              exit 1
+            }
+          done
+          if [ "$want" = skipped ]; then
+            # Loud, not silent. A micro-trade with no exchange in it is a service this bundle
+            # supports (see the route step above), but the vocabulary is then UNVERIFIED and the
+            # log has to say so rather than reporting a check that did not happen.
+            echo "note: this micro-trade predates the order book, so the exchange vocabulary was not verified against it"
+          else
+            echo "ok: the vocabulary and the money helpers were verified against micro-trade"
+          fi
+
+      # …and it can fail. Take one word out of the glossary and require the suite to go red: a
+      # coverage test that passes with a missing entry is measuring nothing, and this one is the
+      # only thing standing between a customer and an untranslated engine word on a live screen.
+      - name: …and it would have noticed a vocabulary word with no explanation
+        working-directory: trade-web
+        run: |
+          set -euo pipefail
+          cp src/lib/glossary.ts "$RUNNER_TEMP/glossary.ts.orig"
+          restore() { cp "$RUNNER_TEMP/glossary.ts.orig" src/lib/glossary.ts; }
+          trap restore EXIT
+
+          # `post_only` is a real entry and a real capability the engine publishes. Renaming the KEY
+          # leaves the file valid TypeScript and leaves the entry present, so what goes red is the
+          # coverage assertion rather than a parse error — which is the property being proved.
+          grep -q "  post_only: {" src/lib/glossary.ts || {
+            echo "::error::post_only is no longer a glossary key; this mutation has gone stale"
+            exit 1
+          }
+          sed -i "s|  post_only: {|  post_only_renamed: {|" src/lib/glossary.ts
+          if cmp -s src/lib/glossary.ts "$RUNNER_TEMP/glossary.ts.orig"; then
+            echo "::error::the mutation changed nothing, so this step proves nothing"
+            exit 1
+          fi
+
+          if node --import tsx --test test/glossary.test.ts >/dev/null 2>&1; then
+            echo "::error::the glossary passed with a vocabulary member that has no explanation"
+            exit 1
+          fi
+          echo "ok: an unexplained engine word turns the suite red, so a pass is evidence"
 
       # ── The design-system cross-check must also have RUN ──────────────────────────────────────
       #
@@ -476,21 +575,59 @@ jobs:
           done
           echo "ok: every modelled figure says so, and nothing promises a return"
 
-      - name: Not an exchange
-        # No order book, no market making. Asserted as an absence, because the vocabulary is what
-        # would arrive first.
-        # Comments stripped first, as above.
+      - name: An exchange only where the deployment says it is one
+        # ══════════════════════════════════════════════════════════════════════════════════════
+        # THIS RULE USED TO READ "Not an exchange", AND IT WAS RIGHT UNTIL THE ORDER BOOK LANDED
+        #
+        # It banned the exchange vocabulary from every page outright — asserted as an absence,
+        # because the vocabulary is what would arrive first, ahead of any code. micro-trade now
+        # runs a central limit order book (`trade/src/matching.ts`) and this bundle has a terminal
+        # for it, so the flat ban is a rule the product has outgrown.
+        #
+        # Deleting it would have been the easy move and the wrong one: the reason it existed —
+        # R-54 in docs/ecosystem/16-risks-and-open-decisions.md, matching two customers' orders is
+        # a different regulatory object from quoting a price at one — has not gone away. It is
+        # answered differently now. The exchange ships behind TRADE_EXCHANGE_ENABLED, which
+        # defaults to false, and every screen that speaks of a book asks the DEPLOYMENT whether it
+        # has one before it says a word.
+        #
+        # So the rule becomes: the vocabulary may appear only in a file that is governed by that
+        # flag. A page that names the order book and never consults `useOrderBook` /
+        # `OrderBookGate` is a page that would print an exchange to a customer of a deployment
+        # that does not run one, which is the exact failure the flat ban was protecting against.
+        #
+        # `strategies.tsx` is the interesting case and the reason this is a per-file rule rather
+        # than an allow-list of five filenames: it is not an exchange screen, but it consults the
+        # flag so it can offer the terminal where one exists. Under an allow-list it would have
+        # had to either lie about the book or hide a real feature.
+        #
+        # Market making stays banned outright, everywhere, with no escape hatch. The platform
+        # takes no side of a trade — R-54 turns on customers matching EACH OTHER — and there is no
+        # flag that makes that true.
+        #
+        # Comments stripped first, as above: this file and several pages QUOTE the banned words in
+        # order to explain them, and a rule you can only satisfy by deleting its own explanation
+        # is a rule that gets deleted.
+        # ══════════════════════════════════════════════════════════════════════════════════════
         run: |
           set -uo pipefail
           strip() { perl -0pe 's{<!--.*?-->}{}gs; s{/\*.*?\*/}{}gs; s{^\s*//.*$}{}gm' "$1"; }
-          for f in $(find src/pages -name '*.tsx'); do
-            if strip "$f" | grep -niE 'order[- ]?book|market[- ]mak|bid/ask|depth chart' \
-                 | grep -viE 'there is no order book' | sed "s|^|$f:|" | grep .; then
-              echo "::error::Forge Trade is not an exchange"
+
+          for f in $(find src -name '*.ts' -o -name '*.tsx'); do
+            if strip "$f" | grep -niE 'market[- ]mak' | sed "s|^|$f:|" | grep .; then
+              echo "::error::this platform does not make markets, and no flag changes that"
               exit 1
             fi
           done
-          echo "ok: no exchange vocabulary"
+
+          for f in $(find src/pages -name '*.tsx'); do
+            strip "$f" | grep -qiE 'order[- ]?book|bid/ask|depth chart' || continue
+            grep -qE 'useOrderBook|OrderBookGate' "$f" || {
+              echo "::error::$f speaks of an order book without asking the deployment whether it runs one"
+              exit 1
+            }
+          done
+          echo "ok: no market making, and the book is named only where the flag governs it"
 
       - name: Every design token this stylesheet names is a real one
         # test/tokens.test.ts proves it against the sibling checkout. This is the half that runs
@@ -498,10 +635,24 @@ jobs:
         # Comments are stripped first, for the same reason the nginx step strips them: the
         # stylesheet's own header QUOTES the property names it forbids in order to explain why.
         # A grep over the raw file matches the explanation and fails a correct stylesheet.
+        #
+        # `critical` LEFT THIS LIST ON 2026-08-10, and the removal is the interesting part. It was
+        # refused as an invented name, and it was one — but micro-ui has since defined the whole
+        # family, and `git show origin/main:packages/ui/src/tokens.css` on that date declares
+        # `--cf-critical`, `--cf-critical-text`, `--cf-critical-wash`, `--cf-critical-ink` and
+        # `--cf-critical-edge`. The header of src/styles.css already said so; this grep did not,
+        # so it refused five real tokens and pushed a stylesheet towards the wrong colour for a
+        # refusal. The other names below were re-checked against the same file the same day and
+        # are all still absent, `--cf-font[^-]` included — `--cf-font-sans`, `-mono` and
+        # `-display` are real, and the character class is what tells them apart.
+        #
+        # This half of the check only ever catches the names somebody has already got wrong once.
+        # `test/tokens.test.ts` is the half that reads the real token file and therefore the half
+        # that can catch a NEW invention; a name dropped from here is still covered there.
         run: |
           set -uo pipefail
           css=$(perl -0pe 's{/\*.*?\*/}{}gs' src/styles.css)
-          if printf '%s\n' "$css" | grep -nE 'var\(--cf-(border|radius-md|space-[1-5][^a-z0-9-]|status-(good|warn|crit)|critical|warning|font[^-])'; then
+          if printf '%s\n' "$css" | grep -nE 'var\(--cf-(border|radius-md|space-[1-5][^a-z0-9-]|status-(good|warn|crit)|warning|font[^-])'; then
             echo "::error::that custom property does not exist in tokens.css; see the header of src/styles.css"
             exit 1
           fi

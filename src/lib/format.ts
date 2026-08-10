@@ -18,6 +18,13 @@
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  */
 import type {
+  FillRole,
+  MarketStatus,
+  OrderStatus,
+  Side,
+  TransferStatus,
+} from './exchange.ts'
+import type {
   BacktestMetrics,
   BacktestStatus,
   BotStatus,
@@ -367,4 +374,164 @@ export function familyName(family: StrategyFamily): string {
  */
 export function modeName(mode: 'paper' | 'live'): string {
   return mode === 'paper' ? 'Paper' : 'Live'
+}
+
+/* ══════════════════════════════ the exchange's own states ══════════════════════════════ */
+
+/**
+ * The six order states — `trade/src/orders.ts`.
+ *
+ * `pending_trigger` is the one that has to be a state of its own rather than a flavour of `open`,
+ * and the engine's comment says why: a stop that has not fired is HELD but not on the book, so it
+ * cannot be traded with and nobody else can see it — while the money for it is already set aside.
+ * A screen that showed it as "open" would have a customer looking for it in a ladder it is not in.
+ */
+export function orderTone(status: OrderStatus): Tone {
+  switch (status) {
+    case 'pending_trigger':
+      return {
+        tone: 'busy',
+        glyph: '◷',
+        word: 'WAITING',
+        meaning: 'A stop that has not fired. Not on the book, and its escrow is already held.',
+      }
+    case 'open':
+      return {
+        tone: 'good',
+        glyph: '●',
+        word: 'OPEN',
+        meaning: 'On the book and available to trade. Part of it may already have filled.',
+      }
+    case 'filled':
+      return {
+        tone: 'good',
+        glyph: '■',
+        word: 'FILLED',
+        meaning: 'Completely traded. Nothing remains and no escrow is held.',
+      }
+    case 'cancelled':
+      return {
+        tone: 'mute',
+        glyph: '□',
+        word: 'CANCELLED',
+        meaning: 'Taken off the book. Anything it traded before that still stands.',
+      }
+    case 'rejected':
+      return {
+        tone: 'crit',
+        glyph: '⊘',
+        word: 'REJECTED',
+        meaning: 'Never accepted. Nothing traded and nothing was ever held.',
+      }
+    case 'expired':
+      return {
+        tone: 'mute',
+        glyph: '◌',
+        word: 'EXPIRED',
+        meaning: 'The time you set ran out and the exchange cancelled the remainder.',
+      }
+  }
+}
+
+/**
+ * The four market states — `trade/src/markets.ts`.
+ *
+ * All four are rendered as themselves rather than collapsed into "open" and "closed", because the
+ * two middle ones change what the ORDER FORM may do: `post_only` refuses anything that would trade
+ * immediately and `cancel_only` refuses everything new. A customer reading "closed" over a market
+ * that is happily accepting resting orders has been told the wrong thing.
+ */
+export function marketStatusTone(status: MarketStatus): Tone {
+  switch (status) {
+    case 'active':
+      return { tone: 'good', glyph: '●', word: 'TRADING', meaning: 'Open. Orders can trade.' }
+    case 'post_only':
+      return {
+        tone: 'warn',
+        glyph: '◑',
+        word: 'POST ONLY',
+        meaning: 'Only orders that rest on the book are accepted; anything that would trade now is refused.',
+      }
+    case 'cancel_only':
+      return {
+        tone: 'warn',
+        glyph: '◷',
+        word: 'CANCEL ONLY',
+        meaning: 'You can withdraw orders. Nothing new is accepted.',
+      }
+    case 'halted':
+      return {
+        tone: 'crit',
+        glyph: '■',
+        word: 'HALTED',
+        meaning: 'Trading is stopped. Existing orders stay where they are.',
+      }
+  }
+}
+
+/**
+ * The four transfer states — `trade/src/transfers.ts`.
+ *
+ * `unresolved` is not a failure and must never be rendered as one. The claim commits before the
+ * ledger is called, so "we asked and did not hear back" is a real, expected outcome that a job
+ * resolves later under the original key. Telling a customer their deposit failed when it may still
+ * land is how somebody sends it twice.
+ */
+export function transferTone(status: TransferStatus): Tone {
+  switch (status) {
+    case 'pending':
+      return {
+        tone: 'busy',
+        glyph: '◐',
+        word: 'PENDING',
+        meaning: 'Accepted and not finished. Nobody has said it failed.',
+      }
+    case 'settled':
+      return { tone: 'good', glyph: '●', word: 'SETTLED', meaning: 'Done. The balance reflects it.' }
+    case 'refused':
+      return {
+        tone: 'crit',
+        glyph: '⊘',
+        word: 'REFUSED',
+        meaning: 'It did not happen and nothing moved.',
+      }
+    case 'unresolved':
+      return {
+        tone: 'warn',
+        glyph: '▲',
+        word: 'UNKNOWN',
+        meaning: 'The outcome is not known yet. It is retried under the same key, so nothing is charged twice.',
+      }
+  }
+}
+
+/** Buy and Sell, capitalised the one way, so two screens cannot spell the same side differently. */
+export function sideWord(side: Side): string {
+  return side === 'buy' ? 'Buy' : 'Sell'
+}
+
+/** Which side of a fill the caller was on — `trade/src/matching.ts`. */
+export function roleWord(role: FillRole): string {
+  return role === 'maker' ? 'Maker' : 'Taker'
+}
+
+/**
+ * A 24-hour change, from the integer basis points the ticker carries.
+ *
+ * Signed always, including the zero case, because a column of changes where "0.00%" has no sign and
+ * everything else does reads as a missing value rather than as flat. `changeBps` is a NUMBER on the
+ * wire rather than a string — it is a proportion computed by the service, not an amount — so this
+ * is one of the two places in this bundle where integer arithmetic on a `number` is correct.
+ */
+export function changeBps(bps: number): string {
+  if (!Number.isFinite(bps)) return '—'
+  const whole = Math.trunc(Math.abs(bps) / 100)
+  const frac = (Math.abs(bps) % 100).toString().padStart(2, '0')
+  return `${bps < 0 ? '-' : '+'}${whole}.${frac}%`
+}
+
+/** Which way a change points, for a tone that never stands alone: the sign is always printed too. */
+export function changeTone(bps: number): 'good' | 'crit' | 'mute' {
+  if (!Number.isFinite(bps) || bps === 0) return 'mute'
+  return bps > 0 ? 'good' : 'crit'
 }

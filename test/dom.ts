@@ -243,12 +243,51 @@ export type Role =
   | 'table'
   | 'main'
   | 'region'
+  /*
+   * `role="tooltip"` has no implicit element, so it is only ever explicit — which is the point.
+   * The trading surface's explanations are a built primitive rather than a `title` attribute
+   * (`src/components/tooltip.tsx` records why: `title` reaches no touch device, no keyboard and
+   * several screen readers), and a scenario cannot assert that without being able to ask for the
+   * role by name.
+   */
+  | 'tooltip'
 
 const squeeze = (s: string): string => s.replace(/\s+/g, ' ').trim()
 
+const CONTROLS = new Set(['input', 'select', 'textarea'])
+
+/**
+ * The text of the `<label>` that names a form control, or ''.
+ *
+ * Both bindings accname recognises are honoured — `<label for="id">` and a label the control sits
+ * INSIDE — because a form on this estate uses the second one everywhere: the field, its help text
+ * and its explanation are one `<label className="tw-field">`, which is what makes the whole block
+ * a click target for the label's own control.
+ *
+ * The control itself is stripped out before the text is taken. Left in, a `<select>` would
+ * contribute every option it holds — so the "Order type" field would be named "Order type Limit
+ * Market Stop limit Stop market", and a scenario asking for the market-order control by name would
+ * match the type picker instead of the thing it meant. The help text IS kept, because a browser
+ * keeps it: it is inside the label, a screen reader reads it as part of the name, and a suite that
+ * quietly disagreed with the AT about what a control is called would be asserting a name nobody
+ * hears.
+ */
+function labelText(el: Element): string {
+  if (!CONTROLS.has(el.tagName.toLowerCase())) return ''
+  const doc = el.ownerDocument
+  const id = el.getAttribute('id')
+  const bound = id ? doc.querySelector(`label[for="${id}"]`) : null
+  const label = bound ?? el.closest('label')
+  if (!label) return ''
+  const copy = label.cloneNode(true) as Element
+  for (const control of [...copy.querySelectorAll('input, select, textarea')]) control.remove()
+  return squeeze(copy.textContent ?? '')
+}
+
 /**
  * The accessible name of an element, by the subset of accname this estate's markup uses:
- * `aria-label`, then `aria-labelledby`, then the element's own text, then `title`.
+ * `aria-label`, then `aria-labelledby`, then a `<label>` for a form control, then the element's
+ * own text, then `title`.
  */
 function accessibleName(el: Element): string {
   const label = el.getAttribute('aria-label')
@@ -261,6 +300,8 @@ function accessibleName(el: Element): string {
       .join(' ')
     if (squeeze(parts)) return squeeze(parts)
   }
+  const labelled = labelText(el)
+  if (labelled) return labelled
   const text = squeeze(el.textContent ?? '')
   if (text) return text
   return squeeze(el.getAttribute('title') ?? '')

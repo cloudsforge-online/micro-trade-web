@@ -75,10 +75,23 @@ describe('the route declaration', () => {
     }
   })
 
-  it('marks both non-index routes as wildcards, because each has pages under it', () => {
-    // /backtests owns /backtests/new and /backtests/<uuid>; /bots the same.
-    assert.equal(ROUTES.find((r) => r.path === 'backtests')?.wildcard, true)
-    assert.equal(ROUTES.find((r) => r.path === 'bots')?.wildcard, true)
+  it('marks a route as a wildcard exactly when it has pages under it', () => {
+    // /backtests owns /backtests/new and /backtests/<uuid>; /bots the same; /markets owns the
+    // terminal at /markets/<symbol>; /orders owns /orders/<uuid>. /balances owns nothing beneath
+    // it, and saying so is what keeps nginx from serving the shell for /balances/anything.
+    const wildcard = ROUTES.filter((r) => r.wildcard).map((r) => r.path)
+    assert.deepEqual(wildcard.slice().sort(), ['backtests', 'bots', 'markets', 'orders'])
+    assert.equal(ROUTES.find((r) => r.path === 'balances')?.wildcard, false)
+  })
+
+  it('offers the exchange, and does so before the research pages', () => {
+    // Ordering is the navigation's ordering: this is a trading product, so the market list, the
+    // orders and the custody page come before the backtester and the bots. Pinned because the
+    // sub-nav is derived from this array's order and nothing else records the intent.
+    assert.deepEqual(
+      ROUTES.map((r) => r.path),
+      ['', 'markets', 'orders', 'balances', 'backtests', 'bots'],
+    )
   })
 
   it('offers every route, because none of them needs an id to mean something', () => {
@@ -150,9 +163,13 @@ describe('the navigation', () => {
     assert.equal(NAV[0]?.to, '/')
   })
 
-  it('offers the backtests and the bots', () => {
-    assert.ok(NAV.some((n) => n.to === '/backtests'))
-    assert.ok(NAV.some((n) => n.to === '/bots'))
+  it('offers every section', () => {
+    for (const to of ['/markets', '/orders', '/balances', '/backtests', '/bots']) {
+      assert.ok(
+        NAV.some((n) => n.to === to),
+        `the sub-navigation does not offer ${to}`,
+      )
+    }
   })
 })
 
@@ -163,11 +180,21 @@ describe('the router', () => {
     }
   })
 
-  it('renders the two detail routes and the two creation forms', () => {
+  it('renders every detail route and both creation forms', () => {
     assert.match(appSource, /path="backtests\/:id"/)
     assert.match(appSource, /path="backtests\/new"/)
     assert.match(appSource, /path="bots\/:id"/)
     assert.match(appSource, /path="bots\/new"/)
+    assert.match(appSource, /path="orders\/:id"/)
+  })
+
+  it('addresses a market by its SYMBOL, not by an id', () => {
+    // Every exchange read takes the symbol — `GET /v1/exchange/markets/:symbol/depth` and the rest
+    // (`trade/src/server.ts`) — and the symbol is what a customer recognises in a bookmark. A route
+    // parameter named `:id` here would be a lie about what the segment holds, and the terminal
+    // reads `useParams<{ symbol: string }>`.
+    assert.match(appSource, /path="markets\/:symbol"/)
+    assert.doesNotMatch(appSource, /path="markets\/:id"/)
   })
 
   it('declares the static child before the dynamic one', () => {
