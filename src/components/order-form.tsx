@@ -392,8 +392,14 @@ export function OrderTicket({
               <strong>
                 <Explain term="post_only" />
               </strong>{' '}
-              Refuse the order outright rather than let it trade immediately. This is how you
-              guarantee you pay the <Explain term="maker">maker</Explain> fee (
+              {/*
+                Not "this guarantees you the maker fee", however true it is of this one checkbox:
+                the estate rule in `.github/workflows/ci.yml` bans the word from a screen outright,
+                because a customer who has read it once about a fee reads it again about a return.
+                "Only way to be sure" says the same thing and promises nothing.
+              */}
+              Refuse the order outright rather than let it trade immediately. It is the only way to
+              be sure you pay the <Explain term="maker">maker</Explain> fee (
               {bpsPercent(market.makerFeeBps)}) instead of the{' '}
               <Explain term="taker">taker</Explain> fee ({bpsPercent(market.takerFeeBps)}).
             </span>
