@@ -29,11 +29,19 @@
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  */
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
-import { AccountMenu, CloudsForgeBar, ProductSwitcher } from '@cloudsforge/ui'
+import { describe, it, test } from 'node:test'
+import {
+  AccountMenu,
+  CloudsForgeBar,
+  HUB_MINE_PATH,
+  NOT_PAID_CLAUSE,
+  ProductSwitcher,
+} from '@cloudsforge/ui'
 import { createElement as h } from 'react'
-import { PRODUCT } from '../src/lib/hosts.ts'
-import { withScreen, type Screen } from './dom.ts'
+import { App } from '../src/app.tsx'
+import { PRODUCT, hosts } from '../src/lib/hosts.ts'
+import * as fx from './fixtures.ts'
+import { withScreen, type Routes, type Screen } from './dom.ts'
 
 /**
  * `allowEmpty` because the subject is a strip of chrome, not a page: the bar's own text is well
@@ -102,5 +110,145 @@ test('ProductSwitcher and AccountMenu also render standing alone', async () => {
   await withScreen(h(AccountMenu, { account: { signedIn: false } }), CHROME, async (s) => {
     s.byRole('button', 'Sign in')
     s.clean('AccountMenu alone')
+  })
+})
+
+/* ── browser mining, from the bar ───────────────────────────────────────────────────────────── */
+
+/**
+ * THE OFFER OF BROWSER MINING IS BESIDE THE ACCOUNT, ON EVERY ADDRESS, AND PROMISES NOTHING.
+ *
+ * The owner's report was that starting a miner is "hidden deep in mining page, it should be easy
+ * found near the account on all pages". These mount the WHOLE APP rather than the bar, because the
+ * defect they exist to catch is not in `@cloudsforge/ui` — micro-ui's `mining.test.ts` owns what
+ * the control draws. It is in THIS file's shell: `mining` is an opt-in prop, a bar rendered without
+ * it is a perfectly valid bar, and a shell that stops passing it is indistinguishable from one that
+ * never did by typecheck, by lint and by every test above. Only mounting the app and reading the
+ * bar closes that.
+ *
+ * Reverting the one line in `src/components/shell.tsx` turns every assertion below red and leaves
+ * the rest of the suite green, which is the mutation proof for this change.
+ *
+ * ── Why the `elsewhere` state is the right answer here and not a degraded one ──────────────────
+ *
+ * A session is a WebSocket to the pool plus two Web Workers, pinned to one origin. `hub.<apex>` is
+ * not this origin, so nothing in this bundle can start, observe or stop one over there; pressing
+ * the control is asserted in micro-hub-web, which actually mounts the miner. What this surface owes
+ * the reader is that the offer EXISTS, that it says where it works, and that it takes them there by
+ * a link they can middle-click — the same argument `accountSettingsUrl` makes, and for the same
+ * reason: an `onClick` standing in for a destination is invisible to every check that reads links,
+ * which is how a wrong one survived on nineteen surfaces.
+ */
+describe('the mining control in the bar', () => {
+  /**
+   * Three addresses of three different kinds, because "on all pages" is the report and one page is
+   * not evidence of it: the public catalogue that anyone can read, a gated address that renders a
+   * sign-in invitation instead of a page, and an address this app does not own at all — which nginx
+   * answers 404 for while still serving this shell (`BJ-TRADE-404`). The chrome is the same on all
+   * three or the chrome is not chrome.
+   */
+  const ADDRESSES: ReadonlyArray<{ path: string; what: string; routes: Routes }> = [
+    { path: '/', what: 'the public strategy catalogue', routes: { 'GET /v1/strategies': { body: { strategies: [fx.strategy()] } } } },
+    { path: '/bots', what: 'a gated address, signed out', routes: {} },
+    { path: '/nothing-here', what: 'an address this app does not own', routes: {} },
+  ]
+
+  const atAddress = async (path: string, routes: Routes, body: (s: Screen) => Promise<void>) =>
+    withScreen(h(App), { url: `https://trade.cloudsforge.online${path}`, routes, allowEmpty: true }, async (s) => {
+      await s.settle(20)
+      await body(s)
+    })
+
+  for (const { path, what, routes } of ADDRESSES) {
+    it(`is in the bar on ${path} — ${what}`, async () => {
+      await atAddress(path, routes, async (s) => {
+        const bar = s.document.querySelector('.cf-bar')
+        assert.ok(bar, 'this app no longer renders the company bar')
+        const found = [...bar.querySelectorAll('.cf-mine')]
+        assert.equal(found.length, 1, `expected one mining control in the bar, found ${found.length}`)
+
+        const mine = found[0] as Element
+        /*
+         * An anchor, and pointed at HUB. Getting the surface wrong is the likely mistake rather
+         * than a hypothetical one: this file already imports `hosts()` for its own API base, and
+         * `hosts().trade` is the neighbouring property — a control that offered mining and led back
+         * to the page the reader is already on would be indistinguishable from a working one in
+         * every screenshot.
+         */
+        assert.equal(mine.tagName, 'A', 'the mining control is not a link')
+        assert.equal(
+          mine.getAttribute('href'),
+          `${hosts().hub}${HUB_MINE_PATH}`,
+          'the mining control does not point at Forge Hub’s mining address',
+        )
+      })
+    })
+  }
+
+  it('is the tab stop immediately before the account, not merely near it in the layout', async () => {
+    const { path, routes } = ADDRESSES[0] as (typeof ADDRESSES)[number]
+    await atAddress(path, routes, async (s) => {
+      /*
+       * DOCUMENT ORDER, NOT CSS. A stylesheet can put a box anywhere on the row — `order:` and
+       * `flex-direction: row-reverse` both do it without moving a single node — so a check that
+       * read the rendered geometry would pass for a control that a keyboard reader reaches last,
+       * after the switcher and the whole page. The tab order is what the reader who never sees the
+       * layout actually gets, and "near the account" is a claim about where you find it, not about
+       * where it is painted.
+       */
+      const order = s.tabbables()
+      const mine = s.document.querySelector('.cf-mine') as Element
+      const account = s.byRole('button', 'Sign in')
+      assert.ok(order.includes(mine), 'the mining control is not reachable by keyboard at all')
+      assert.equal(
+        order.indexOf(account) - order.indexOf(mine),
+        1,
+        'the mining control is no longer immediately before the account in the tab order',
+      )
+    })
+  })
+
+  it('promises no payment, and carries no figure that could be read as one', async () => {
+    const { path, routes } = ADDRESSES[0] as (typeof ADDRESSES)[number]
+    await atAddress(path, routes, async (s) => {
+      const mine = s.document.querySelector('.cf-mine') as Element
+
+      /*
+       * `pool/src/payouts.ts` states it: "PAYOUTS ARE OFF." `payoutsImplemented` is derived by the
+       * service and is false on this estate, and `miningOnHub()` defaults to false rather than
+       * asking this bundle — which has never spoken to the pool — to assert otherwise.
+       *
+       * Asserted against the exported constant rather than a paraphrase of it, so that rewording
+       * the sentence in micro-ui does not quietly turn this into a test of a string that no longer
+       * appears anywhere.
+       */
+      const described = s.document.getElementById(mine.getAttribute('aria-describedby') ?? '')
+      assert.ok(described, 'the mining control carries no description for a screen reader')
+      assert.ok(
+        s.textOf(described).includes(NOT_PAID_CLAUSE),
+        'the mining control does not carry the not-paid clause',
+      )
+
+      /*
+       * And no number, which bites harder on this surface than on any other in the estate. Every
+       * other figure in this bundle is money or a quantity of an asset — a balance, a fill price, a
+       * mark, an equity curve — so a digit rendered beside the word Mine lands in a row of real
+       * ones and reads as a third. `pool-web/src/components/notices.tsx` states the standard: not
+       * zeroed and not greyed out, because a zero reads as "not yet, but soon" and the truth is
+       * "not at all".
+       */
+      assert.doesNotMatch(
+        `${s.textOf(mine)} ${s.textOf(described)}`,
+        /[$€£]|\d/,
+        'the mining control shows a figure, and nothing is paid',
+      )
+      // The vocabulary too, not only the digits: "earn", "reward", "payout" are the words a reader
+      // would take as a promise even with no number attached.
+      assert.doesNotMatch(
+        `${s.textOf(mine)} ${s.textOf(described)}`,
+        /earn|revenue|reward|payout|profit/i,
+        'the mining control uses the vocabulary of being paid',
+      )
+    })
   })
 })

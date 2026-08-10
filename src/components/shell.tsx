@@ -10,10 +10,17 @@
  * `CookieBanner` last. See the note beside each.
  */
 import { useEffect } from 'react'
-import { CloudsForgeBar, CloudsForgeFooter, CookieBanner, MainRegion, SkipLink } from '@cloudsforge/ui'
+import {
+  CloudsForgeBar,
+  CloudsForgeFooter,
+  CookieBanner,
+  MainRegion,
+  SkipLink,
+  miningOnHub,
+} from '@cloudsforge/ui'
 import { applyHead, surfaceMeta } from '@cloudsforge/ui/seo'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { PRODUCT } from '../lib/hosts.ts'
+import { PRODUCT, hosts } from '../lib/hosts.ts'
 import { NAV, ROUTES } from '../lib/routes.ts'
 import { useSession } from '../lib/auth.tsx'
 
@@ -32,11 +39,37 @@ export function AppShell({ unregistered = false }: { unregistered?: boolean }) {
         on the link, and the next Tab went back into the bar. The shared component sets it.
       */}
       <SkipLink />
+      {/*
+        BROWSER MINING, BESIDE THE ACCOUNT, ON EVERY ADDRESS THIS APP SERVES.
+
+        The owner's report was that starting a miner is "hidden deep in mining page, it should be
+        easy found near the account on all pages". The bar is the only chrome every address of every
+        surface renders, so it is the only place the offer can be made ONCE and be everywhere; and
+        the design system renders it immediately left of the account menu, so its position does not
+        drift from surface to surface the way a `rightSlot` would. Thirteen screens here, not one.
+
+        `miningOnHub()`, which is the `elsewhere` state, because this is not the hub. A session is a
+        WebSocket to the pool plus two Web Workers grinding scrypt, pinned to one origin, and
+        `hub.<apex>` is not this origin — nothing in this bundle can start, observe or stop one over
+        there. So the control renders an ANCHOR to the surface that can, which is middle-clickable,
+        openable in a new tab and legible to everything that reads links. Pretending otherwise would
+        need a cross-origin channel that does not exist, to fake a session that is not here.
+
+        It promises no payment, and does not have to be told to: `payoutsImplemented` defaults to
+        false, so the description carries `NOT_PAID_CLAUSE`. That default is the honest one for this
+        surface in particular — a bundle whose every other figure is a balance, a fill price or a
+        mark is the worst possible place to put a number beside the word Mine.
+
+        `hosts().hub`, never a written-out URL. This bundle is served from localhost, from a preview
+        host and from `trade.<apex>`, and a literal would be right on exactly one of them — the same
+        argument the whole of lib/hosts.ts makes, and the rule `.github/workflows/ci.yml` enforces.
+      */}
       <CloudsForgeBar
         current={PRODUCT}
         account={account}
         onSignIn={() => signIn()}
         onSignOut={signOut}
+        mining={miningOnHub(hosts().hub)}
       />
       {/*
         The sub-nav is sticky at exactly `var(--cf-bar-h)` — the bar's own height token, not a
