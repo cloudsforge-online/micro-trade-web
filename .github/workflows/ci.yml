@@ -536,21 +536,59 @@ jobs:
           done
           echo "ok: every modelled figure says so, and nothing promises a return"
 
-      - name: Not an exchange
-        # No order book, no market making. Asserted as an absence, because the vocabulary is what
-        # would arrive first.
-        # Comments stripped first, as above.
+      - name: An exchange only where the deployment says it is one
+        # ══════════════════════════════════════════════════════════════════════════════════════
+        # THIS RULE USED TO READ "Not an exchange", AND IT WAS RIGHT UNTIL THE ORDER BOOK LANDED
+        #
+        # It banned the exchange vocabulary from every page outright — asserted as an absence,
+        # because the vocabulary is what would arrive first, ahead of any code. micro-trade now
+        # runs a central limit order book (`trade/src/matching.ts`) and this bundle has a terminal
+        # for it, so the flat ban is a rule the product has outgrown.
+        #
+        # Deleting it would have been the easy move and the wrong one: the reason it existed —
+        # R-54 in docs/ecosystem/16-risks-and-open-decisions.md, matching two customers' orders is
+        # a different regulatory object from quoting a price at one — has not gone away. It is
+        # answered differently now. The exchange ships behind TRADE_EXCHANGE_ENABLED, which
+        # defaults to false, and every screen that speaks of a book asks the DEPLOYMENT whether it
+        # has one before it says a word.
+        #
+        # So the rule becomes: the vocabulary may appear only in a file that is governed by that
+        # flag. A page that names the order book and never consults `useOrderBook` /
+        # `OrderBookGate` is a page that would print an exchange to a customer of a deployment
+        # that does not run one, which is the exact failure the flat ban was protecting against.
+        #
+        # `strategies.tsx` is the interesting case and the reason this is a per-file rule rather
+        # than an allow-list of five filenames: it is not an exchange screen, but it consults the
+        # flag so it can offer the terminal where one exists. Under an allow-list it would have
+        # had to either lie about the book or hide a real feature.
+        #
+        # Market making stays banned outright, everywhere, with no escape hatch. The platform
+        # takes no side of a trade — R-54 turns on customers matching EACH OTHER — and there is no
+        # flag that makes that true.
+        #
+        # Comments stripped first, as above: this file and several pages QUOTE the banned words in
+        # order to explain them, and a rule you can only satisfy by deleting its own explanation
+        # is a rule that gets deleted.
+        # ══════════════════════════════════════════════════════════════════════════════════════
         run: |
           set -uo pipefail
           strip() { perl -0pe 's{<!--.*?-->}{}gs; s{/\*.*?\*/}{}gs; s{^\s*//.*$}{}gm' "$1"; }
-          for f in $(find src/pages -name '*.tsx'); do
-            if strip "$f" | grep -niE 'order[- ]?book|market[- ]mak|bid/ask|depth chart' \
-                 | grep -viE 'there is no order book' | sed "s|^|$f:|" | grep .; then
-              echo "::error::Forge Trade is not an exchange"
+
+          for f in $(find src -name '*.ts' -o -name '*.tsx'); do
+            if strip "$f" | grep -niE 'market[- ]mak' | sed "s|^|$f:|" | grep .; then
+              echo "::error::this platform does not make markets, and no flag changes that"
               exit 1
             fi
           done
-          echo "ok: no exchange vocabulary"
+
+          for f in $(find src/pages -name '*.tsx'); do
+            strip "$f" | grep -qiE 'order[- ]?book|bid/ask|depth chart' || continue
+            grep -qE 'useOrderBook|OrderBookGate' "$f" || {
+              echo "::error::$f speaks of an order book without asking the deployment whether it runs one"
+              exit 1
+            }
+          done
+          echo "ok: no market making, and the book is named only where the flag governs it"
 
       - name: Every design token this stylesheet names is a real one
         # test/tokens.test.ts proves it against the sibling checkout. This is the half that runs
