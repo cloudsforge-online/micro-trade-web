@@ -366,6 +366,13 @@ describe('no float touches an amount', () => {
  * Skipped without a sibling checkout, for the reason `test/trade.test.ts` gives at length: `pnpm
  * test` must pass for somebody who has cloned only this repository, and CI is where the absence
  * becomes a failure.
+ *
+ * The probe is `matching.ts` rather than `money.ts`, and the difference is a micro-trade that
+ * predates the order book: `money.ts` has been there for as long as the service has, so probing it
+ * says "there is a checkout" when the question is "does this checkout have an exchange in it". A
+ * service with no `matching.ts` is a supported peer — `test/trade.test.ts` carries the whole
+ * argument, and `test/glossary.test.ts` probes the same file for the same reason — and reading its
+ * missing files would fail this suite for a service that is behaving exactly as this bundle expects.
  */
 const TRADE_CANDIDATES = [
   process.env['CLOUDSFORGE_TRADE_DIR'],
@@ -374,7 +381,7 @@ const TRADE_CANDIDATES = [
 ].filter((v): v is string => Boolean(v))
 
 const tradeSrc = TRADE_CANDIDATES.map((p) => p.replace(/\/server\.ts$/, '')).find((p) =>
-  existsSync(`${p}/money.ts`),
+  existsSync(`${p}/matching.ts`),
 )
 
 describe('the browser and the engine do the same arithmetic', { skip: !tradeSrc }, () => {

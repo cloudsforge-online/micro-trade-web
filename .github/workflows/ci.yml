@@ -215,16 +215,33 @@ jobs:
             echo "::error::the route cross-check did not run against trade/src/server.ts"
             exit 1
           }
-          # Thirteen called routes plus three declined ones, each looked up in the service.
+          # ── TWO FLOORS, BECAUSE THERE ARE TWO SUPPORTED SERVICES ──────────────────────────────
+          #
+          # This bundle serves a micro-trade with an order book and one without: `src/lib/orderbook.tsx`
+          # treats an absent `orderBook` capability block as "no exchange here" and
+          # `test/terminal.test.ts` proves it then makes no /v1/exchange request at all. So the
+          # count to expect depends on which service was checked out, and the floor is read from
+          # the checkout rather than assumed — `test/trade.test.ts` refuses a PARTIAL exchange in
+          # either case, which is where a renamed or missing route still shows up.
           #
           # DEDUPED before counting. node:test names each subtest twice — once as it runs and once
           # in the summary — so a raw `grep -c` doubles the figure. The threshold still passed, so
           # nothing was broken; the LOG LINE was simply wrong, which is the defect this whole
           # repository is built to avoid. A number nobody can reconcile is a number somebody
           # eventually reasons from.
+          if [ -f ../trade/src/matching.ts ]; then
+            floor=33   # the original sixteen plus the seventeen the order book adds
+          else
+            floor=16   # a micro-trade that predates the order book: thirteen called, three declined
+            grep -q 'predates the order book' <<<"$out" || {
+              echo "::error::micro-trade has no matching.ts and the suite did not say the exchange checks stood down"
+              exit 1
+            }
+            echo "note: this micro-trade predates the order book; $floor routes to check, not 33"
+          fi
           count=$(printf '%s\n' "$out" | grep -oE '[A-Z]+ /v1/[^ ]+ is registered in trade/src/server\.ts' | sort -u | wc -l | tr -d ' ')
-          [ "$count" -ge 16 ] || {
-            echo "::error::only $count routes were checked against the service; the surface has sixteen"
+          [ "$count" -ge "$floor" ] || {
+            echo "::error::only $count routes were checked against the service; this checkout has $floor"
             exit 1
           }
           echo "ok: $count routes verified against the service that serves them"
@@ -272,17 +289,27 @@ jobs:
       # market status, transfer direction and status — is explained somewhere on this surface, and
       # `test/exchange-units.test.ts` proves the browser's fee, notional and unit arithmetic is the
       # same arithmetic `trade/src/money.ts` performs. Both skip themselves without a checkout, for
-      # the same reason the route check does, so on the runner the skip has to be fatal.
+      # the same reason the route check does, so on the runner the skip has to be accounted for
+      # exactly: FORBIDDEN against a micro-trade that has an order book, REQUIRED against one that
+      # does not. Either way the step says which of the two it saw, because "the vocabulary was
+      # verified" and "there was no vocabulary to verify" are different sentences and only one of
+      # them is evidence.
       # ══════════════════════════════════════════════════════════════════════════════════════════
       - name: The exchange vocabulary was checked against the real service
         working-directory: trade-web
         run: |
           set -euo pipefail
-          test -f ../trade/src/exchange.ts || {
+          test -f ../trade/src/server.ts || {
             echo "::error::micro-trade was not checked out; the vocabulary was never verified"
             exit 1
           }
-          out=$(node --import tsx --test test/glossary.test.ts test/exchange-units.test.ts 2>&1 || true)
+          # A NAMED CLAIM IS NOT A CHECKED ONE. Both suites skip themselves when the checkout has no
+          # order book in it, and node:test prints the describe's name on the skip line — so the
+          # original `grep -q "$claim"` was satisfied by the very skip it existed to forbid. The
+          # colour codes are stripped first for the same reason: a `# SKIP` wearing an escape
+          # sequence is a `# SKIP` this grep would have missed.
+          out=$(node --import tsx --test test/glossary.test.ts test/exchange-units.test.ts 2>&1 | perl -pe 's/\e\[[0-9;]*m//g' || true)
+          if [ -f ../trade/src/matching.ts ]; then want=ran; else want=skipped; fi
           for claim in \
             'the glossary covers exactly what micro-trade serves' \
             'the browser and the engine do the same arithmetic'
@@ -291,8 +318,20 @@ jobs:
               echo "::error::\"$claim\" never ran, so nothing was checked against the service"
               exit 1
             }
+            if grep -qE "$claim.*# SKIP" <<<"$out"; then got=skipped; else got=ran; fi
+            [ "$got" = "$want" ] || {
+              echo "::error::\"$claim\" $got against a checkout where it should have $want"
+              exit 1
+            }
           done
-          echo "ok: the vocabulary and the money helpers were verified against micro-trade"
+          if [ "$want" = skipped ]; then
+            # Loud, not silent. A micro-trade with no exchange in it is a service this bundle
+            # supports (see the route step above), but the vocabulary is then UNVERIFIED and the
+            # log has to say so rather than reporting a check that did not happen.
+            echo "note: this micro-trade predates the order book, so the exchange vocabulary was not verified against it"
+          else
+            echo "ok: the vocabulary and the money helpers were verified against micro-trade"
+          fi
 
       # …and it can fail. Take one word out of the glossary and require the suite to go red: a
       # coverage test that passes with a missing entry is measuring nothing, and this one is the

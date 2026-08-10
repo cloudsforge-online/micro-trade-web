@@ -312,20 +312,65 @@ describe('every route this bundle names is really registered by the service', ()
   const service = readServiceSource(tradeServer, readFileSync(tradeServer, 'utf8'))
   const bodyOf = (method: string, path: string): string => service.routeBody(method, path)
 
+  /**
+   * ══════════════════════════════════════════════════════════════════════════════════════════════
+   * ── A micro-trade THAT PREDATES THE ORDER BOOK IS A SUPPORTED PEER, NOT A BROKEN ONE ─────────
+   *
+   * This bundle already proves it works against one. `src/lib/orderbook.tsx` reads
+   * GET /v1/capabilities and treats an ABSENT `orderBook` block as "this deployment has no
+   * exchange" — the same answer as the flag being off — and `test/terminal.test.ts` asserts that
+   * in that state the app makes no `/v1/exchange/` request at all. So a service with no exchange
+   * routes is a deployment this app is designed to serve, and asserting those routes exist
+   * unconditionally would contradict a scenario this suite already holds.
+   *
+   * ALL OR NOTHING, and that is what keeps the check worth having. If the service registers NONE
+   * of the exchange routes it predates the order book and the exchange assertions stand down,
+   * loudly, as skips. If it registers ANY of them it must register EVERY one — so a typo in a
+   * path, a route quietly renamed, or a handful of routes that never landed is still a failure
+   * naming the route. The property that mattered was never "these routes exist"; it was "this
+   * bundle and that service agree about them", and disagreement is exactly what a partial set is.
+   * ══════════════════════════════════════════════════════════════════════════════════════════════
+   */
+  const registeredRoutes = new Set(service.registrations.map((r) => `${r.method} ${r.path}`))
+  const isExchange = (route: { path: string }): boolean => route.path.startsWith('/v1/exchange/')
+  const EXCHANGE = [...SURFACE, ...DECLINED].filter(isExchange)
+  const servedExchange = EXCHANGE.filter((r) => registeredRoutes.has(`${r.method} ${r.path}`))
+  const servesExchange = servedExchange.length > 0
+  /** The routes it is meaningful to look up in THIS checkout of the service. */
+  const served = <T extends { path: string }>(routes: readonly T[]): readonly T[] =>
+    servesExchange ? routes : routes.filter((r) => !isExchange(r))
+
+  it('the service serves the whole order book or none of it, never part', () => {
+    const missing = EXCHANGE.filter((r) => !registeredRoutes.has(`${r.method} ${r.path}`)).map(
+      (r) => `${r.method} ${r.path}`,
+    )
+    assert.ok(
+      missing.length === 0 || servedExchange.length === 0,
+      `micro-trade serves ${servedExchange.length} of the ${EXCHANGE.length} exchange routes this ` +
+        `bundle names and not ${missing.join(', ')}. A partial order book is a disagreement, not ` +
+        'an older service: this app would call a route that is not there.',
+    )
+    if (!servesExchange) {
+      // Says so in the log rather than passing quietly. CI distinguishes this line from a missing
+      // checkout, which stays fatal.
+      console.log('# this micro-trade predates the order book; the exchange checks stood down')
+    }
+  })
+
   it('reads a server with a route table in it, so this cannot pass on an empty file', () => {
     // The floor is the number of routes both tables name, plus the four the service registers and
     // this bundle has no business with (/livez, /readyz, /metrics and the strategy catalogue is
     // already counted). Expressed against the tables rather than as a literal, so adding a route
     // above raises the floor with it and a parser that has quietly stopped recognising a registrar
     // — which is exactly what `exchangeRoute` would have been — shows up here first.
-    const named = SURFACE.length + DECLINED.length
+    const named = served(SURFACE).length + served(DECLINED).length
     assert.ok(
       service.registrations.length >= named,
       `expected at least the ${named} routes these tables name, found ${service.registrations.length}`,
     )
   })
 
-  it('every order-book route is registered through exchangeRoute, not through define', () => {
+  it('every order-book route is registered through exchangeRoute, not through define', { skip: !servesExchange }, () => {
     // THE ASSERTION BEHIND THE WHOLE GATE. `src/lib/orderbook.tsx` shows or refuses this product's
     // entire trading surface on one reading of GET /v1/capabilities, and the promise underneath is
     // that a deployment with TRADE_EXCHANGE_ENABLED off cannot serve any of these routes at all.
@@ -360,7 +405,7 @@ describe('every route this bundle names is really registered by the service', ()
     }
   })
 
-  it('the exchange wrapper really does refuse when the flag is off', () => {
+  it('the exchange wrapper really does refuse when the flag is off', { skip: !servesExchange }, () => {
     // `registrar: 'exchangeRoute'` is worth nothing if the wrapper stops checking. Read as the
     // DECLARATION, bounded by the end of its own initialiser — it is a const arrow, so
     // `functionBody` cannot find it and would throw "no longer declares a function", which reads as
@@ -376,7 +421,7 @@ describe('every route this bundle names is really registered by the service', ()
     )
   })
 
-  for (const route of [...SURFACE, ...DECLINED]) {
+  for (const route of [...served(SURFACE), ...served(DECLINED)]) {
     it(`${route.method} ${route.path} is registered in trade/src/server.ts`, () => {
       // `routeBody` throws — naming the route, the resolved file and every route the file DOES
       // register — rather than returning an empty string for the rest of the suite to assert over.
@@ -407,7 +452,7 @@ describe('every route this bundle names is really registered by the service', ()
     // The defect this asserts against is a client sending a bearer to a handler that never wanted
     // one and then reasoning about a 403 that was never about authorisation — and its mirror, a
     // client withholding one from a handler that authenticates through a helper.
-    for (const route of SURFACE) {
+    for (const route of served(SURFACE)) {
       const body = bodyOf(route.method, route.path)
       // Ordered from most specific to least. `reader(` and `writer(` are tested BEFORE the literal
       // `authenticate(` because both helpers contain one — a handler that calls `reader` does not
@@ -430,7 +475,7 @@ describe('every route this bundle names is really registered by the service', ()
     }
   })
 
-  it('reader and writer really authenticate, so the exchange routes are not open', () => {
+  it('reader and writer really authenticate, so the exchange routes are not open', { skip: !servesExchange }, () => {
     // Same reasoning as `ownedBot` below: the sixteen routes marked 'reader' or 'writer' are only
     // as authenticated as these two helpers are. Both are read as FUNCTIONS, brace to brace.
     for (const name of ['reader', 'writer']) {
@@ -441,7 +486,7 @@ describe('every route this bundle names is really registered by the service', ()
     }
   })
 
-  it('cancelling is metered more generously than placing, and that is deliberate', () => {
+  it('cancelling is metered more generously than placing, and that is deliberate', { skip: !servesExchange }, () => {
     // It must never be harder to get out than it was to get in. The browser says so in its glossary
     // (`rate_limit`, src/lib/glossary.ts) and this is where that sentence is checked against the
     // service rather than believed: placing uses the `order.place` bucket and cancelling — both the
@@ -454,7 +499,7 @@ describe('every route this bundle names is really registered by the service', ()
     )
   })
 
-  it('every route that reads the caller’s own rows scopes the query to that caller', () => {
+  it('every route that reads the caller’s own rows scopes the query to that caller', { skip: !servesExchange }, () => {
     // A 404 rather than somebody else's order. The handler has to pass the principal's own id into
     // the query rather than trusting the path, and this is the shape micro-trade uses throughout.
     const OWNED = [
@@ -522,7 +567,7 @@ describe('every route this bundle names is really registered by the service', ()
     // when trade's table moved, 334 became the /metrics handler — which also makes no
     // authenticate() call, so the check went on PASSING while grading a completely different
     // function. A guard that cannot fail is worse than no guard, because it is believed.
-    const open = SURFACE.filter((r) => r.auth === 'none')
+    const open = served(SURFACE).filter((r) => r.auth === 'none')
     assert.ok(open.length >= 1, 'the unauthenticated routes have vanished from the surface')
     for (const route of open) {
       assert.doesNotMatch(
@@ -536,7 +581,7 @@ describe('every route this bundle names is really registered by the service', ()
   it('every mutating route this app calls requires an Idempotency-Key', () => {
     // The opposite of micro-mint-web's assertion, and it has to be, because trade is the opposite
     // service: `idempotencyKeyOf` throws a BadRequestError when the header is absent.
-    for (const route of SURFACE.filter((r) => r.idempotent)) {
+    for (const route of served(SURFACE).filter((r) => r.idempotent)) {
       assert.match(
         bodyOf(route.method, route.path),
         /idempotencyKeyOf\(ctx\)/,
