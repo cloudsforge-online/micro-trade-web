@@ -45,6 +45,25 @@ export const ROUTES: readonly AppRoute[] = [
   // actually do, and what does each rule get wrong" — and it answers it to somebody who has not
   // signed in, which is who arrives at a product's front page. `GET /v1/strategies` is public.
   { path: '', label: 'Strategies', wildcard: false, public: true },
+  // ── The exchange ────────────────────────────────────────────────────────────────────────────
+  //
+  // These three are the trading surface, and all three are gated even though two of them show
+  // information that is not private: `GET /v1/exchange/markets`, `/depth`, `/ticker` and `/trades`
+  // all run through `reader()` in `trade/src/server.ts`, which authenticates before it does
+  // anything else. Rendering them without a session would be this app offering an address that can
+  // only answer 401 — the same mistake in the opposite direction from gating `/v1/strategies`.
+  //
+  // Wildcard: `/markets/<symbol>` is the trading terminal, and it is the address a customer
+  // bookmarks. A symbol carries a slash in no market this service defines (`BASE-QUOTE`), so one
+  // segment beneath is all it ever needs — but the segment is dynamic, so nginx must serve
+  // everything under it.
+  { path: 'markets', label: 'Markets', wildcard: true, public: false },
+  // Wildcard: `/orders/<uuid>` is one order with its event timeline and its own fills.
+  { path: 'orders', label: 'Orders', wildcard: true, public: false },
+  // No wildcard: custody is one page. There is nothing beneath it to address — a transfer has no
+  // detail screen because the ledger's own row is the whole of it, and it is rendered in place.
+  { path: 'balances', label: 'Balances', wildcard: false, public: false },
+  // ── Research and automation ─────────────────────────────────────────────────────────────────
   // Wildcard: `/backtests/new` is the form and `/backtests/<uuid>` is the status page — the
   // address `POST /v1/backtests` puts in its `location` header (`trade/src/server.ts`), which
   // is what a customer polls while the run is queued.

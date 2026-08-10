@@ -264,6 +264,66 @@ jobs:
           fi
           echo "ok: naming a route the service does not serve turns the suite red, so a pass is evidence"
 
+      # ══════════════════════════════════════════════════════════════════════════════════════════
+      # THE EXCHANGE VOCABULARY AND THE MONEY ARITHMETIC, CHECKED AGAINST THE SAME SERVICE.
+      #
+      # `test/glossary.test.ts` proves every member of every vocabulary the engine can PUT ON THE
+      # WIRE — order types, time in force, self-trade prevention, order status, order event kind,
+      # market status, transfer direction and status — is explained somewhere on this surface, and
+      # `test/exchange-units.test.ts` proves the browser's fee, notional and unit arithmetic is the
+      # same arithmetic `trade/src/money.ts` performs. Both skip themselves without a checkout, for
+      # the same reason the route check does, so on the runner the skip has to be fatal.
+      # ══════════════════════════════════════════════════════════════════════════════════════════
+      - name: The exchange vocabulary was checked against the real service
+        working-directory: trade-web
+        run: |
+          set -euo pipefail
+          test -f ../trade/src/exchange.ts || {
+            echo "::error::micro-trade was not checked out; the vocabulary was never verified"
+            exit 1
+          }
+          out=$(node --import tsx --test test/glossary.test.ts test/exchange-units.test.ts 2>&1 || true)
+          for claim in \
+            'the glossary covers exactly what micro-trade serves' \
+            'the browser and the engine do the same arithmetic'
+          do
+            grep -q "$claim" <<<"$out" || {
+              echo "::error::\"$claim\" never ran, so nothing was checked against the service"
+              exit 1
+            }
+          done
+          echo "ok: the vocabulary and the money helpers were verified against micro-trade"
+
+      # …and it can fail. Take one word out of the glossary and require the suite to go red: a
+      # coverage test that passes with a missing entry is measuring nothing, and this one is the
+      # only thing standing between a customer and an untranslated engine word on a live screen.
+      - name: …and it would have noticed a vocabulary word with no explanation
+        working-directory: trade-web
+        run: |
+          set -euo pipefail
+          cp src/lib/glossary.ts "$RUNNER_TEMP/glossary.ts.orig"
+          restore() { cp "$RUNNER_TEMP/glossary.ts.orig" src/lib/glossary.ts; }
+          trap restore EXIT
+
+          # `post_only` is a real entry and a real capability the engine publishes. Renaming the KEY
+          # leaves the file valid TypeScript and leaves the entry present, so what goes red is the
+          # coverage assertion rather than a parse error — which is the property being proved.
+          grep -q "  post_only: {" src/lib/glossary.ts || {
+            echo "::error::post_only is no longer a glossary key; this mutation has gone stale"
+            exit 1
+          }
+          sed -i "s|  post_only: {|  post_only_renamed: {|" src/lib/glossary.ts
+          if cmp -s src/lib/glossary.ts "$RUNNER_TEMP/glossary.ts.orig"; then
+            echo "::error::the mutation changed nothing, so this step proves nothing"
+            exit 1
+          fi
+
+          if node --import tsx --test test/glossary.test.ts >/dev/null 2>&1; then
+            echo "::error::the glossary passed with a vocabulary member that has no explanation"
+            exit 1
+          fi
+          echo "ok: an unexplained engine word turns the suite red, so a pass is evidence"
+
       # ── The design-system cross-check must also have RUN ──────────────────────────────────────
       #
       # `test/tokens.test.ts` proves every `--cf-*` this stylesheet reads is declared by micro-ui.

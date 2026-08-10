@@ -14,9 +14,12 @@
  * would have served them, which is the same class of mistake as sending a bearer token to a route
  * that never wanted one.
  *
- * The other two authenticate, so they are gated. The gate is NOT the security boundary — trade
- * verifies the bearer itself (`trade/src/server.ts`) and every owned row is filtered by
- * `user_id` in the query, so another customer's bot is a 404 (`trade/src/bots.ts`).
+ * Everything else authenticates, so it is gated — including the market list, the depth ladder and
+ * the public tape, which are not private information but are served through `reader()`
+ * (`trade/src/server.ts`), and `reader()` authenticates before it does anything else. The gate is
+ * NOT the security boundary — trade verifies the bearer itself and every owned row is filtered by
+ * `user_id` in the query, so another customer's bot is a 404 (`trade/src/bots.ts`) and another
+ * customer's order is a 404 (`trade/src/orders.ts`).
  */
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { ScrollToTop } from './components/scroll-to-top.tsx'
@@ -24,6 +27,11 @@ import { AppShell } from './components/shell.tsx'
 import { AuthProvider, ProtectedRoute } from './lib/auth.tsx'
 import { placementIsKnown } from './lib/hosts.ts'
 import { StrategiesPage } from './pages/strategies.tsx'
+import { MarketsPage } from './pages/markets.tsx'
+import { MarketPage } from './pages/market.tsx'
+import { OrdersPage } from './pages/orders.tsx'
+import { OrderPage } from './pages/order.tsx'
+import { BalancesPage } from './pages/balances.tsx'
 import { BacktestsPage } from './pages/backtests.tsx'
 import { NewBacktestPage } from './pages/new-backtest.tsx'
 import { BacktestPage } from './pages/backtest.tsx'
@@ -43,6 +51,49 @@ export function App() {
           <Route element={<AppShell unregistered={unregistered} />}>
             {/* Public: the strategy catalogue is what an unsigned-in visitor arrived to read. */}
             <Route index element={<StrategiesPage />} />
+            {/* The exchange. `:symbol` rather than `:id` because a market is addressed by the name
+                a customer reads — `EMBER-USD`, not a uuid — and that name is what the depth, tape
+                and candle reads all take. */}
+            <Route
+              path="markets"
+              element={
+                <ProtectedRoute>
+                  <MarketsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="markets/:symbol"
+              element={
+                <ProtectedRoute>
+                  <MarketPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="orders"
+              element={
+                <ProtectedRoute>
+                  <OrdersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="orders/:id"
+              element={
+                <ProtectedRoute>
+                  <OrderPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="balances"
+              element={
+                <ProtectedRoute>
+                  <BalancesPage />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="backtests"
               element={

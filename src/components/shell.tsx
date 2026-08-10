@@ -136,10 +136,17 @@ function DocumentMeta() {
  * This page's own title, and whether a crawler is invited to it.
  *
  * `robots` is read off `ROUTES` rather than decided here, because that table already says which
- * addresses render without a session. Everything under `/backtests` and `/bots` is a
- * `ProtectedRoute` over one customer's own rows, so an indexed one could only ever be the sign-in
- * redirect — a search result advertising an address nobody but its owner can open. The catalogue is
- * the page this product wants read, and it keeps the registry's `index, follow`.
+ * addresses render without a session. Every route but the catalogue is a `ProtectedRoute`, so an
+ * indexed one could only ever be the sign-in redirect — a search result advertising an address
+ * nobody but its owner can open. The catalogue is the page this product wants read, and it keeps
+ * the registry's `index, follow`.
+ *
+ * The market terminal is titled with the SYMBOL rather than the word "Market", because a trader
+ * keeps several open and the tab strip is the only thing that tells them apart. It is uppercased
+ * from the address rather than read from the loaded market: this runs on navigation, before the
+ * market read has returned, and a tab that says "Market" for two seconds and then changes is worse
+ * than one that says what was asked for. An address that names no real market is 404ing in the
+ * page anyway.
  */
 function pageMeta(pathname: string): { title?: string; robots?: string } {
   const segments = pathname.split('/').filter((s) => s !== '')
@@ -153,6 +160,15 @@ function pageMeta(pathname: string): { title?: string; robots?: string } {
   const route = ROUTES.find((r) => r.path === head)
   const gated = route !== undefined && !route.public ? { robots: 'noindex, nofollow' } : {}
 
+  if (head === 'markets') {
+    if (tail === undefined) return { title: 'Markets', ...gated }
+    return { title: tail.toUpperCase(), ...gated }
+  }
+  if (head === 'orders') {
+    if (tail === undefined) return { title: 'Your orders', ...gated }
+    return { title: 'Order', ...gated }
+  }
+  if (head === 'balances') return { title: 'Balances', ...gated }
   if (head === 'backtests') {
     if (tail === undefined) return { title: 'Backtests', ...gated }
     return { title: tail === 'new' ? 'Queue a backtest' : 'Backtest', ...gated }

@@ -14,6 +14,7 @@
 import { Link } from 'react-router-dom'
 import { Failed, Forbidden, Loading } from '../components/states.tsx'
 import { familyName } from '../lib/format.ts'
+import { useOrderBook } from '../lib/orderbook.tsx'
 import { useResource } from '../lib/resource.ts'
 import { getStrategies, type Strategy } from '../lib/trade.ts'
 
@@ -69,9 +70,9 @@ export function StrategiesPage() {
         <code className="cf-num">5&nbsp;bps</code> to slippage unless you change them, and a paper
         bot is billed the identical amounts.
         A strategy that only works for free does not work.
-        This is also not an exchange: there is no order book here, and nothing you do sets a price
-        for anyone else.
       </p>
+
+      <ExchangeClaim />
 
       <section>
         <h2 className="tw-section__title">How a rule earns its place</h2>
@@ -117,6 +118,68 @@ export function StrategiesPage() {
         </ul>
       )}
     </section>
+  )
+}
+
+/**
+ * WHETHER THIS DEPLOYMENT IS AN EXCHANGE — ASKED, NOT ASSERTED.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * This paragraph used to read "This is also not an exchange: there is no order book here, and
+ * nothing you do sets a price for anyone else." That was true of every deployment when it was
+ * written and is now true of only some of them: `TRADE_EXCHANGE_ENABLED` is false by default
+ * (`trade/src/env.ts`), so the old sentence is still right on a default estate — and flatly wrong
+ * on one where an operator has turned the book on, which is the case this whole surface exists for.
+ *
+ * A claim about a runtime flag belongs in a runtime read. `GET /v1/capabilities` is unauthenticated
+ * (`trade/src/server.ts`), so this renders for a signed-out visitor, which is who is on this page.
+ *
+ * Three branches, and the third is the point. "We could not check" is NOT "it is off": a failed
+ * capability read tells this bundle nothing, and printing the confident disclaimer while the read
+ * was failing would be a marketing claim made by a network error. Same rule the live-bot switch in
+ * `new-bot.tsx` keeps, and `test/render.test.ts` enforces both.
+ *
+ * While the read is in flight nothing is rendered at all. A one-line placeholder that resolves into
+ * a paragraph makes the page jump, and this sentence is not urgent enough to be worth the shift —
+ * whereas a sentence that says the wrong thing for 200 ms is worth avoiding entirely.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ */
+function ExchangeClaim() {
+  const { capabilities, book } = useOrderBook()
+
+  if (capabilities.state === 'loading') return null
+
+  if (capabilities.error) {
+    return (
+      <p className="tw-claim tw-claim--quiet">
+        <strong>We could not check whether trading is switched on here.</strong> The rest of this
+        page — the catalogue, backtests and bots — does not depend on it. Whether this deployment
+        also matches live orders is something only it can answer, and it did not.
+      </p>
+    )
+  }
+
+  if (book !== null && book.enabled) {
+    return (
+      <p className="tw-claim">
+        <strong>This deployment also matches real orders.</strong> Orders you place rest on a book
+        alongside everybody else’s and are matched by price, then by which arrived first — so what
+        you do here does move the price other people get.{' '}
+        <Link to="/markets">See the markets</Link>. Everything above still applies: the same costs
+        are charged, and a backtest remains a simulation over bars that have already happened.
+      </p>
+    )
+  }
+
+  // Off, or an older Forge Trade that reports no book at all. Both mean the same thing to a reader,
+  // and `book.refusal` — the service's own sentence — is quoted rather than paraphrased where it
+  // exists, for the reason `lib/orderbook.tsx` gives.
+  return (
+    <p className="tw-claim tw-claim--quiet">
+      <strong>This deployment is not an exchange.</strong>{' '}
+      {book?.refusal ?? 'It reports no matching engine at all.'} Nothing you do here sets a price
+      for anyone else.
+    </p>
   )
 }
 

@@ -21,8 +21,19 @@
  * — the estate's voice, one string — and no page may put a modelled figure next to a future tense
  * or a promise.
  *
- * **3. This is not an exchange.** No order book, no market making. Asserted as an absence, because
- * the vocabulary is what would arrive first.
+ * **3. Whether this is an exchange is a RUNTIME FACT, and every page has to treat it as one.**
+ * This claim used to be an absence: no page might say "order book" at all, because the product had
+ * no matching engine and the vocabulary is what would arrive first. `TRADE_EXCHANGE_ENABLED`
+ * (`trade/src/env.ts`) turned it into a per-deployment flag that defaults to off, so the absence is
+ * no longer the right assertion — it would forbid the surface that exists to be shown when the flag
+ * is on. What is asserted instead is narrower and harder:
+ *
+ *   * the pages that are NOT the trading surface still may not use the vocabulary, so a stray
+ *     "order book" in the bot form is still caught;
+ *   * the trading pages must all sit behind `OrderBookGate`, so none of them can render a market
+ *     screen on a deployment that has no market;
+ *   * and the front page may not state the claim in EITHER direction as a literal — it has to ask,
+ *     and it has to have a third branch for "could not check", exactly like the live-bot switch.
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  */
 import assert from 'node:assert/strict'
@@ -53,6 +64,16 @@ const PAGES = readdirSync(at('src/pages')).filter((f) => f.endsWith('.tsx'))
 /** Pages that print a figure produced by a backtest. */
 const METRIC_PAGES = ['backtest.tsx', 'backtests.tsx', 'new-backtest.tsx']
 
+/**
+ * The trading surface: the pages that exist only when this deployment has a matching engine.
+ *
+ * Named here rather than inferred from a filename, because the list is what the rules below key
+ * off — a page in it is allowed the order-book vocabulary and is REQUIRED to sit behind the gate,
+ * and a page outside it is forbidden the vocabulary. Getting a page into this list is therefore a
+ * decision somebody makes, and `found every page` below makes them make it.
+ */
+const EXCHANGE_PAGES = ['balances.tsx', 'market.tsx', 'markets.tsx', 'order.tsx', 'orders.tsx']
+
 describe('the page set is the one this test thinks it is', () => {
   it('found every page', () => {
     assert.deepEqual(
@@ -60,15 +81,26 @@ describe('the page set is the one this test thinks it is', () => {
       [
         'backtest.tsx',
         'backtests.tsx',
+        'balances.tsx',
         'bot.tsx',
         'bots.tsx',
+        'market.tsx',
+        'markets.tsx',
         'new-backtest.tsx',
         'new-bot.tsx',
         'not-found.tsx',
+        'order.tsx',
+        'orders.tsx',
         'strategies.tsx',
       ],
       'a page was added or removed; the rules below have to be applied to it deliberately',
     )
+  })
+
+  it('every page named as part of the trading surface exists', () => {
+    for (const page of EXCHANGE_PAGES) {
+      assert.ok(PAGES.includes(page), `EXCHANGE_PAGES names ${page}, which is not a page`)
+    }
   })
 })
 
@@ -187,21 +219,61 @@ describe('fees and slippage are visible, because that is the product', () => {
   })
 })
 
-describe('this is not an exchange, and the vocabulary stays out', () => {
-  it('no page uses order-book or market-making language', () => {
+describe('whether this is an exchange is asked at runtime, never claimed by the build', () => {
+  it('the pages that are not the trading surface keep the vocabulary out', () => {
+    // Unchanged in substance from when the product had no matching engine at all: a backtest form
+    // that starts talking about bid/ask is describing something it does not do. What changed is
+    // that the trading pages are excluded rather than the whole app being subject to it.
     const FORBIDDEN = [/order book/i, /orderbook/i, /\bmarket[- ]mak/i, /\bbid[/-]ask\b/i, /\bdepth chart\b/i]
     for (const page of PAGES) {
+      if (EXCHANGE_PAGES.includes(page)) continue
       const source = rendered(`src/pages/${page}`)
       for (const pattern of FORBIDDEN) {
-        // The one legitimate mention is the front page saying it does NOT have one.
-        if (page === 'strategies.tsx' && /there is no order book/i.test(source)) continue
+        // The front page's one legitimate mention: the branch that quotes the service saying there
+        // is no book on this deployment.
+        if (page === 'strategies.tsx' && /is not an exchange/i.test(source)) continue
         assert.doesNotMatch(source, pattern, `${page} matches ${pattern}`)
       }
     }
   })
 
-  it('the front page says so outright', () => {
-    assert.match(read('src/pages/strategies.tsx'), /not an exchange/i)
+  it('the front page ASKS rather than asserting, and has all three branches', () => {
+    // The defect this replaces: a flat sentence saying "this is also not an exchange: there is no
+    // order book here", which is correct on a default deployment and wrong on one with the flag on
+    // — a marketing claim that a config change silently falsifies. Same three rules as the live-bot
+    // switch in new-bot.tsx: ask, distinguish off from unknown, quote the service's refusal.
+    const source = read('src/pages/strategies.tsx')
+    assert.match(source, /useOrderBook\(\)/, 'the front page does not ask this deployment anything')
+    assert.match(source, /book !== null && book\.enabled/, 'the on case is not tested explicitly')
+    assert.match(source, /capabilities\.error/, 'unknown is not its own branch')
+    assert.match(source, /could not check/i, 'unknown does not get its own words')
+    assert.match(source, /book\?\.refusal/, "the service's own refusal sentence is not quoted")
+  })
+
+  it('the front page never states the claim as a literal, in either direction', () => {
+    // Both halves matter. "This is not an exchange" is the old defect; "this IS an exchange" as
+    // unconditional prose would be the same defect wearing the other hat, and it is the one a
+    // future edit is likelier to introduce, because it reads like a feature announcement.
+    const source = rendered('src/pages/strategies.tsx')
+    for (const line of source.split('\n')) {
+      if (/useOrderBook|book\.enabled|book\?\.refusal|capabilities\./.test(line)) continue
+      assert.doesNotMatch(
+        line,
+        /\b(?:this|forge trade) is (?:also )?(?:not )?an exchange\b/i,
+        'the exchange claim must be inside a branch of the capability read, not typed as prose',
+      )
+    }
+  })
+
+  it('every trading page renders behind the capability gate', () => {
+    // The gate is what makes the surface honest on a deployment with the flag off: the pages behind
+    // it cannot render a market screen, because `OrderBookGate` calls its render prop only with a
+    // book that is present and enabled. A page that read the resource itself and rendered anyway
+    // would show an empty ladder, which reads as a market with no bids rather than as no market.
+    for (const page of EXCHANGE_PAGES) {
+      const source = read(`src/pages/${page}`)
+      assert.match(source, /<OrderBookGate\b/, `${page} does not render behind OrderBookGate`)
+    }
   })
 })
 

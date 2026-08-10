@@ -65,7 +65,25 @@ export interface Registration {
   readonly method: string
   readonly path: string
   /**
-   * The whole `define(…)` call: comments removed, whitespace flattened to single spaces.
+   * WHICH REGISTRAR DECLARED IT — `define` or `exchangeRoute`.
+   *
+   * Not decoration. micro-trade wraps every order-book route in `exchangeRoute`, which checks
+   * `deps.exchangeEnabled` and throws `ExchangeDisabledError` before the handler runs, and its own
+   * comment says why it is done at declaration: "Eighteen copies of one `if` is eighteen chances to
+   * forget it, and the one that gets forgotten will be a mutating route — a placement or a
+   * withdrawal — because those are the ones written last."
+   *
+   * This repository depends on that. `OrderBookGate` shows a whole surface or refuses it on the
+   * strength of one capability read, and the promise underneath is that no exchange route can be
+   * reached on a deployment with the flag off. If micro-trade ever registers an order-book route
+   * with a bare `define`, that promise is broken in the service and this bundle would keep making
+   * it — so `test/trade.test.ts` asserts the registrar per route, and the registrar is only
+   * knowable if the parser records which one it saw.
+   */
+  readonly registrar: string
+  /**
+   * The whole `define(…)` or `exchangeRoute(…)` call: comments removed, whitespace flattened to
+   * single spaces.
    *
    * Bounded by the parenthesis that CLOSES the call, so it is exactly the registration and its
    * handler however large either grows — it cannot run into the next route, and it cannot run off
@@ -83,8 +101,20 @@ export interface ServiceSource {
   readonly code: string
   /** The body of one registration. Throws, loudly, if the service does not register it. */
   routeBody(method: string, path: string): string
+  /** One whole registration. Throws, loudly, if the service does not register it. */
+  route(method: string, path: string): Registration
   /** The body of one top-level function. Throws, loudly, if the service no longer declares it. */
   functionBody(name: string): string
+  /**
+   * The body of one top-level `const name = … => { … }` or `const name = function (…) { … }`.
+   *
+   * `functionBody` only matches a `function` DECLARATION, and micro-trade declares several of the
+   * helpers this suite reasons about as consts — `exchangeRoute`, `reader`, `writer`. Asking
+   * `functionBody('exchangeRoute')` for one of those throws "no longer declares a function called
+   * exchangeRoute", which reads as "the service deleted it" and is not what happened. Two matchers
+   * rather than one that guesses, so the error message stays true.
+   */
+  declarationBody(name: string): string
 }
 
 /**
@@ -295,14 +325,27 @@ function closerOf(skeleton: string, open: number, file: string): number {
 }
 
 /**
- * A registration, wherever it sits.
+ * A registration, wherever it sits, whichever registrar declared it.
  *
  * `\s*` rather than a fixed line shape on purpose: the arguments are allowed to be wrapped across
  * lines by a formatter without this repository concluding that micro-trade dropped a route. The
- * `define` token is confirmed against the skeleton so that the word appearing INSIDE a string can
+ * registrar token is confirmed against the skeleton so that the word appearing INSIDE a string can
  * never be read as a registration.
+ *
+ * TWO REGISTRARS, ALTERNATED RATHER THAN GENERALISED. It is tempting to match `\w+\s*\('([A-Z]+)'`
+ * and take whatever is in front, which would need no edit when micro-trade adds a third. That is
+ * the wrong trade: this parser's whole job is to fail LOUDLY when the file stops looking the way
+ * this repository believes, and a pattern that matches any identifier would silently promote
+ * `describe('GET', …)` — or a future `deprecatedRoute(…)` that answers 410 — to a live route. An
+ * unrecognised registrar should make `every route this bundle names is really registered` go red
+ * with a route missing, which sends a reader to the service. Naming the two is one line of
+ * maintenance for that.
  */
-const REGISTRATION = /\bdefine\s*\(\s*'([A-Z]+)'\s*,\s*'([^']*)'/g
+const REGISTRARS = ['define', 'exchangeRoute'] as const
+const REGISTRATION = new RegExp(
+  String.raw`\b(${REGISTRARS.join('|')})\s*\(\s*'([A-Z]+)'\s*,\s*'([^']*)'`,
+  'g',
+)
 
 export function readServiceSource(file: string, text: string): ServiceSource {
   const { code, skeleton } = scan(text)
@@ -310,12 +353,14 @@ export function readServiceSource(file: string, text: string): ServiceSource {
   const registrations: Registration[] = []
   for (const match of code.matchAll(REGISTRATION)) {
     const at = match.index
-    if (skeleton.slice(at, at + 'define'.length) !== 'define') continue
+    const registrar = match[1] as string
+    if (skeleton.slice(at, at + registrar.length) !== registrar) continue
     const open = code.indexOf('(', at)
     const end = closerOf(skeleton, open, file)
     registrations.push({
-      method: match[1] as string,
-      path: match[2] as string,
+      method: match[2] as string,
+      path: match[3] as string,
+      registrar,
       body: flatten(code.slice(at, end)),
     })
   }
@@ -327,7 +372,7 @@ export function readServiceSource(file: string, text: string): ServiceSource {
       : `The file registers ${registrations.length}: ` +
         registrations.map((r) => `${r.method} ${r.path}`).join(', ')
 
-  const routeBody = (method: string, path: string): string => {
+  const route = (method: string, path: string): Registration => {
     const found = registrations.find((r) => r.method === method && r.path === path)
     if (!found) {
       // Loud, and specific about which of the two possible worlds this is. Returning '' here would
@@ -336,8 +381,10 @@ export function readServiceSource(file: string, text: string): ServiceSource {
         `${method} ${path} is not registered in ${file}. ${describeWhatWasFound()}`,
       )
     }
-    return found.body
+    return found
   }
+
+  const routeBody = (method: string, path: string): string => route(method, path).body
 
   const functionBody = (name: string): string => {
     const declaration = new RegExp(
@@ -372,5 +419,69 @@ export function readServiceSource(file: string, text: string): ServiceSource {
     }
   }
 
-  return { file, registrations, code: flatten(code), routeBody, functionBody }
+  /**
+   * A top-level `const name = …`, bounded by the end of its own initialiser.
+   *
+   * ── Why this cannot brace-match like `functionBody` does ─────────────────────────────────────
+   *
+   * The helpers this is for are CONCISE arrows. micro-trade's `exchangeRoute` is
+   * `const exchangeRoute = (…): Route => define(method, path, async (ctx, deps) => { … })` — an
+   * expression, whose outermost bracket is a parenthesis belonging to a call, not a brace belonging
+   * to a body. Brace-matching the first `{` after the name returns the arrow's INNER handler and
+   * stops before the `)` that closes the call, so an assertion about the whole helper would be
+   * graded against a fragment of it.
+   *
+   * So the boundary is the end of the STATEMENT, found structurally: a newline at bracket depth
+   * zero, where the last significant character does not continue the expression. `=>`, an operator
+   * or an open bracket means the initialiser runs on; anything else means it finished. Depth is the
+   * structural part and is what makes this survive an edit — the helper may grow to fifty lines and
+   * gain any number of nested calls without moving its own end.
+   *
+   * The one shape this deliberately does not accept is a declaration indented inside something
+   * else. A `const` nested in a function is a different symbol that happens to share a name, and
+   * grading an assertion against it is the mistake micro-org#235 is about.
+   */
+  const declarationBody = (name: string): string => {
+    const declaration = new RegExp(
+      `(?:^|\\n)(?:export\\s+)?(?:const|let)\\s+${name}\\s*(?::|=)`,
+    )
+    const found = declaration.exec(code)
+    if (!found) {
+      throw new Error(
+        `${file} no longer declares a top-level const called ${name}. Every assertion this suite ` +
+          'makes about that helper is now unverifiable; re-read the service rather than deleting ' +
+          'them. (If it became a `function`, use functionBody instead.)',
+      )
+    }
+    const start = code.indexOf(name, found.index)
+    const CONTINUES = '=>,.:?|&+-*/%<([{'
+    let depth = 0
+    let significant = ''
+    for (let i = start; i < skeleton.length; i++) {
+      const c = skeleton[i] as string
+      if ('([{'.includes(c)) depth += 1
+      else if (')]}'.includes(c)) depth -= 1
+      else if (c === '\n') {
+        if (depth === 0 && significant !== '' && !CONTINUES.includes(significant)) {
+          return flatten(code.slice(start, i))
+        }
+        continue
+      }
+      if (!/\s/.test(c)) significant = c
+    }
+    throw new Error(
+      `${file}: the declaration of ${name} never ends. The file did not parse, so no assertion ` +
+        'made against it means anything — do not read this as a service defect.',
+    )
+  }
+
+  return {
+    file,
+    registrations,
+    code: flatten(code),
+    route,
+    routeBody,
+    functionBody,
+    declarationBody,
+  }
 }

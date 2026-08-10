@@ -69,6 +69,7 @@
  * `qty` and `priceScaled` would not, and one rule is easier to keep than two.
  */
 import { api } from './api.ts'
+import type { OrderBookCapabilities } from './exchange.ts'
 
 /* ══════════════════════════════ the catalogue ══════════════════════════════ */
 
@@ -357,6 +358,16 @@ export interface TradeCapabilities {
     /** The service's own sentence, present only when it is switched off. */
     readonly refusal?: string
   }
+  /**
+   * The order book, and the four vocabularies its controls are built from.
+   *
+   * Optional on the TYPE and not on the wire: a deployment running a `trade` from before the
+   * exchange existed answers this route without the key, and a bundle that read `capabilities
+   * .orderBook.enabled` off it would throw inside render rather than show a customer a screen. An
+   * absent block is read as "not switched on here", which is the same conclusion and one the older
+   * service would agree with.
+   */
+  readonly orderBook?: OrderBookCapabilities
 }
 
 /* ══════════════════════════════ the calls ══════════════════════════════ */

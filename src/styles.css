@@ -273,8 +273,12 @@ body {
 }
 
 /*
- * The product's central claim, given a panel rather than a footnote: fees and slippage are
- * charged, and this is not an exchange.
+ * The product's central claim, given a panel rather than a footnote: fees and slippage are charged.
+ *
+ * It used to carry the second claim too — "and this is not an exchange" — which moved out into
+ * `ExchangeClaim` in `pages/strategies.tsx` when the order book shipped. That sentence is now a
+ * statement about a runtime flag, so it is read from `GET /v1/capabilities` rather than asserted by
+ * this bundle, and it renders in the quiet variant below when the answer is no.
  */
 .tw-claim {
   margin: 0;
@@ -289,6 +293,20 @@ body {
 
 .tw-claim strong {
   color: var(--cf-fg);
+}
+
+/* Two claims in a row on the front page, and the page's own flow gives them no gap. */
+.tw-claim + .tw-claim {
+  margin-top: var(--cf-space-lg);
+}
+
+/*
+ * A claim about something this deployment does NOT do, or could not answer. The accent rail is
+ * dropped to `--cf-line-strong`: the emphatic left edge belongs to the sentence that sells the
+ * product, and a disclaimer wearing it competes with the thing it qualifies.
+ */
+.tw-claim--quiet {
+  border-left-color: var(--cf-line-strong);
 }
 
 /* ---- the modelled label ----------------------------------------------- */
@@ -917,4 +935,721 @@ body {
 
 .tw-chart__key--hold::before {
   background: var(--cf-fg-dim);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+ * THE TRADING SURFACE
+ *
+ * Everything below this line renders only on a deployment whose order book is switched on
+ * (`TRADE_EXCHANGE_ENABLED`, `trade/src/env.ts`), so none of it is on the critical path for the
+ * catalogue, the backtester or the bots. It is the largest block in this file because a trading
+ * screen has the most controls per square inch of anything the estate ships.
+ *
+ * ── Two rules that shaped all of it ───────────────────────────────────────────────────────────
+ *
+ * **1. Colour is never the only channel.** A red row and a green row differ here by their SIDE
+ * COLUMN and their position in the ladder as well as by hue — bids below the spread, asks above it,
+ * each labelled in text. Roughly one man in twelve cannot separate the estate's gain and loss
+ * ramps, and a book that only says "buy" in green says nothing to him. The same rule the badges
+ * above are built on.
+ *
+ * **2. Numbers are tabular, always.** Every price, size and total carries `cf-num` in the markup,
+ * which is where the design system puts `font-variant-numeric: tabular-nums`. A ladder in
+ * proportional figures has columns that shift on every poll, and a reader watching for a level to
+ * clear watches the digits dance instead.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* ---- the capability gate ----------------------------------------------- */
+
+/*
+ * Shown INSTEAD of a trading screen when the deployment has no exchange. Deliberately not styled as
+ * an error: this is the ordinary case — the flag is off by default — and a red panel would send
+ * somebody to a status page for a deployment that is working exactly as configured.
+ */
+.tw-gate {
+  margin: var(--cf-space-2xl) 0;
+  padding: var(--cf-space-2xl);
+  border: 1px dashed var(--cf-line-strong);
+  border-radius: var(--cf-radius-lg);
+  background: var(--cf-surface);
+  max-width: 46rem;
+}
+
+.tw-gate__title {
+  margin: 0 0 var(--cf-space-md);
+  font-size: var(--cf-text-lg);
+  font-weight: 600;
+}
+
+.tw-gate__reason {
+  margin: 0 0 var(--cf-space-md);
+  color: var(--cf-fg);
+}
+
+.tw-gate__hint {
+  margin: 0;
+  color: var(--cf-fg-dim);
+  font-size: var(--cf-text-md);
+}
+
+/* ---- the tooltip -------------------------------------------------------- */
+
+/*
+ * `position: relative` on the wrapper and `absolute` on the bubble, so the explanation never
+ * displaces the control it explains. A tooltip that reflows the form moves the button the reader
+ * was about to press — which on this surface is a button that spends money.
+ */
+.tw-explain {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--cf-space-3xs);
+}
+
+.tw-explain__label {
+  text-decoration: underline dotted var(--cf-line-strong);
+  text-underline-offset: 0.2em;
+}
+
+/*
+ * A real button, and it looks like one on focus. It is small, so the focus ring matters more here
+ * than anywhere else in the file: this is the control a keyboard reader tabs through forty of.
+ */
+.tw-explain__trigger {
+  flex: none;
+  width: 1.05em;
+  height: 1.05em;
+  padding: 0;
+  border: 1px solid var(--cf-line-strong);
+  border-radius: 50%;
+  background: var(--cf-surface);
+  color: var(--cf-fg-mute);
+  font-size: var(--cf-text-2xs);
+  line-height: 1;
+  cursor: help;
+}
+
+.tw-explain__trigger:hover,
+.tw-explain__trigger:focus-visible {
+  border-color: var(--cf-accent);
+  color: var(--cf-accent-text);
+}
+
+/*
+ * `z-index` because this opens over a table with its own stacking, and `width` in `ch` because the
+ * body is prose: a bubble as wide as the page is a line length nobody reads to the end of.
+ */
+.tw-explain__bubble {
+  position: absolute;
+  top: calc(100% + var(--cf-space-2xs));
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-2xs);
+  width: max-content;
+  max-width: 46ch;
+  padding: var(--cf-space-md) var(--cf-space-lg);
+  border: 1px solid var(--cf-line-strong);
+  border-radius: var(--cf-radius);
+  background: var(--cf-surface-solid);
+  box-shadow: var(--cf-shadow-lg);
+  font-size: var(--cf-text-sm);
+  font-weight: 400;
+  line-height: var(--cf-leading);
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: normal;
+  text-align: left;
+}
+
+.tw-explain__term {
+  color: var(--cf-fg);
+}
+
+.tw-explain__body {
+  color: var(--cf-fg-dim);
+}
+
+/* The informational half of `Note`; `.tw-note--warn` above is the other. */
+.tw-note--info {
+  border: 1px solid var(--cf-line);
+}
+
+/*
+ * Visible to a screen reader, not to the eye. Used for headings that name a region which is
+ * visually obvious — the order ticket already says what it is in its own legend — and for the words
+ * that make an icon button announce itself.
+ */
+.tw-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- the market list ---------------------------------------------------- */
+
+.tw-market__link {
+  font-weight: 600;
+}
+
+.tw-table--markets td,
+.tw-table--orders td,
+.tw-table--fills td,
+.tw-table--balances td,
+.tw-table--transfers td,
+.tw-table--tape td {
+  vertical-align: baseline;
+}
+
+/* ---- the terminal ------------------------------------------------------- */
+
+/*
+ * Three panels: the book, the ticket, the tape. The ticket is in the MIDDLE on purpose — it is
+ * between the prices you are reacting to and the trades that resulted, which is the order the work
+ * happens in, and it puts the one control that spends money where the eye already is.
+ *
+ * `minmax(0, …)` on every column because each contains a table: a grid track sized `auto` refuses
+ * to shrink below its content, so one wide row of fills would push the ladder off the screen
+ * instead of scrolling inside its own wrapper.
+ */
+.tw-page--terminal {
+  max-width: none;
+}
+
+.tw-terminal {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 22rem) minmax(0, 1fr);
+  gap: var(--cf-space-xl);
+  align-items: start;
+  margin: var(--cf-space-xl) 0;
+}
+
+.tw-terminal__book,
+.tw-terminal__ticket,
+.tw-terminal__tape {
+  min-width: 0;
+}
+
+.tw-terminal__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cf-space-lg);
+}
+
+.tw-terminal__live {
+  font-size: var(--cf-text-sm);
+  color: var(--cf-fg-dim);
+}
+
+.tw-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cf-space-2xs);
+  cursor: pointer;
+}
+
+.tw-section {
+  margin: var(--cf-space-2xl) 0 0;
+}
+
+.tw-section__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cf-space-lg);
+}
+
+/* ---- the ticker strip --------------------------------------------------- */
+
+/*
+ * Eight facts in one strip, `--cf-text-sm` and tight, because this is the band a trader glances at
+ * rather than reads. It reuses `.tw-fact` from the report screens: the same shape means the same
+ * thing here as it does there, which is one less thing to learn.
+ */
+.tw-ticker {
+  display: grid;
+  gap: var(--cf-space-lg);
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  margin: var(--cf-space-lg) 0 0;
+  padding: var(--cf-space-lg) var(--cf-space-xl);
+  border: 1px solid var(--cf-line);
+  border-radius: var(--cf-radius-lg);
+  background: var(--cf-surface-solid);
+  font-size: var(--cf-text-sm);
+}
+
+.tw-ticker__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cf-space-lg);
+  margin: var(--cf-space-sm) 0 0;
+  font-size: var(--cf-text-sm);
+  color: var(--cf-fg-dim);
+}
+
+/*
+ * The day's move. `mute` for flat AND for a figure that could not be computed, because those are
+ * the same thing to a reader: no direction to report.
+ */
+.tw-change {
+  font-weight: 600;
+}
+
+.tw-change--good {
+  color: var(--cf-good-text);
+}
+
+.tw-change--crit {
+  color: var(--cf-critical-text);
+}
+
+.tw-change--mute {
+  color: var(--cf-fg-mute);
+}
+
+/* ---- the depth ladder --------------------------------------------------- */
+
+/*
+ * ASKS ABOVE, BIDS BELOW, SPREAD BETWEEN — the arrangement every exchange uses, and the reason is
+ * not tradition: price increases upward, so the two sides read as one continuous axis and the gap
+ * between them is visibly the spread rather than a divider somebody drew.
+ *
+ * The bar behind each row is the cumulative size at that level as a share of the largest on either
+ * side, drawn with ONE scale across both. Two scales would make a thin book look balanced.
+ */
+/*
+ * DELIBERATELY NOT `overflow: hidden`, though clipping the depth bars to these corners would look
+ * tidier. The ladder's own header and its spread row carry `Explain` tooltips, and the bubble is
+ * absolutely positioned — a clipping ancestor would cut the explanation off at the panel edge,
+ * which is the one failure that leaves a control with no way to explain itself. The bars round
+ * their own corners instead.
+ */
+.tw-ladder {
+  border: 1px solid var(--cf-line);
+  border-radius: var(--cf-radius-lg);
+  background: var(--cf-surface-solid);
+  padding: var(--cf-space-lg);
+}
+
+.tw-table--ladder {
+  font-size: var(--cf-text-sm);
+}
+
+.tw-table--ladder th,
+.tw-table--ladder td {
+  padding: var(--cf-space-2xs) var(--cf-space-sm);
+  border-bottom: 0;
+}
+
+.tw-ladder__row {
+  position: relative;
+}
+
+/*
+ * The depth bar, drawn as a background layer rather than an element in flow, so it cannot change
+ * the row's height and make the ladder jump on every poll. `width` is set inline from the
+ * cumulative share — the only inline style on this surface, because it is data, not design.
+ */
+.tw-ladder__bar {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  right: 0;
+  z-index: 0;
+  border-radius: var(--cf-radius-sm);
+  pointer-events: none;
+}
+
+.tw-ladder__row--bid .tw-ladder__bar {
+  background: var(--cf-good-wash);
+}
+
+.tw-ladder__row--ask .tw-ladder__bar {
+  background: var(--cf-critical-wash);
+}
+
+.tw-ladder__row td {
+  position: relative;
+  z-index: 1;
+}
+
+/*
+ * The price is a BUTTON: clicking it copies that level into the ticket. Styled as text, because a
+ * ladder of thirty buttons that all look like buttons is a wall of chrome — but it keeps a real
+ * focus ring and a real hover, so it is discoverable by keyboard and by pointer.
+ */
+.tw-ladder__price {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline dotted transparent;
+  text-underline-offset: 0.2em;
+}
+
+.tw-ladder__price:hover,
+.tw-ladder__price:focus-visible {
+  text-decoration-color: currentcolor;
+}
+
+/* The two `<tbody>` halves. Named so the price colour is set once per side, not once per row. */
+.tw-ladder__side {
+  vertical-align: baseline;
+}
+
+.tw-ladder__side--bid .tw-ladder__price {
+  color: var(--cf-viz-gain);
+}
+
+.tw-ladder__side--ask .tw-ladder__price {
+  color: var(--cf-viz-loss);
+}
+
+/* The spread, between the two sides. Centred and quiet: it is a fact, not a level you can hit. */
+.tw-ladder__spread td {
+  padding: var(--cf-space-sm);
+  border-top: 1px solid var(--cf-line-strong);
+  border-bottom: 1px solid var(--cf-line-strong);
+  text-align: center;
+  color: var(--cf-fg-dim);
+  font-size: var(--cf-text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ---- the tape ----------------------------------------------------------- */
+
+/*
+ * Coloured by the TAKER's side, which is what "the trade happened at the ask" means. The side is
+ * also spelled out in its own column, per the first rule at the top of this block.
+ */
+.tw-table--tape {
+  font-size: var(--cf-text-sm);
+}
+
+.tw-tape__row td:first-child {
+  padding-left: var(--cf-space-md);
+}
+
+.tw-tape__row--buy td:first-child {
+  box-shadow: inset 2px 0 0 var(--cf-viz-gain);
+}
+
+.tw-tape__row--sell td:first-child {
+  box-shadow: inset 2px 0 0 var(--cf-viz-loss);
+}
+
+/*
+ * The side, SPELLED OUT, in every fills and orders table. Weighted rather than only tinted, per
+ * the first rule at the head of this block: the word is the channel, the colour is the reinforcement.
+ */
+.tw-side {
+  font-weight: 600;
+}
+
+.tw-side--buy {
+  color: var(--cf-good-text);
+}
+
+.tw-side--sell {
+  color: var(--cf-critical-text);
+}
+
+/* ---- candles ------------------------------------------------------------ */
+
+/*
+ * Taller than the equity curve because a candle carries four numbers where a line carries one, and
+ * a body squashed under 200px stops being distinguishable from its own wick.
+ */
+.tw-chart__svg--candles {
+  height: 260px;
+}
+
+/* One `<g>` per bar: a wick line and a body rect, coloured together by the modifier below. */
+.tw-candle {
+  stroke-linecap: butt;
+}
+
+.tw-candle__wick {
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.tw-candle--up .tw-candle__wick,
+.tw-candle--up .tw-candle__body {
+  stroke: var(--cf-viz-gain);
+  fill: var(--cf-viz-gain);
+}
+
+.tw-candle--down .tw-candle__wick,
+.tw-candle--down .tw-candle__body {
+  stroke: var(--cf-viz-loss);
+  fill: var(--cf-viz-loss);
+}
+
+.tw-chart__caption {
+  margin: var(--cf-space-sm) 0 0;
+  font-size: var(--cf-text-sm);
+  color: var(--cf-fg-dim);
+}
+
+/*
+ * The table under the chart, in a `<details>`. It is the same numbers, exact, and it is what makes
+ * the drawing optional rather than load-bearing — a reader who cannot see the chart, or whose
+ * prices this bundle could not parse, still has every value.
+ */
+.tw-chart__table {
+  margin: var(--cf-space-md) 0 0;
+  font-size: var(--cf-text-sm);
+}
+
+/* ---- the order ticket --------------------------------------------------- */
+
+.tw-ticket {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-lg);
+  padding: var(--cf-space-xl);
+  border: 1px solid var(--cf-line-strong);
+  border-radius: var(--cf-radius-lg);
+  background: var(--cf-surface-solid);
+}
+
+.tw-ticket__title {
+  margin: 0;
+  font-size: var(--cf-text-lg);
+  font-weight: 600;
+}
+
+.tw-ticket__side {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--cf-space-sm);
+}
+
+/*
+ * Buy and sell are tinted, and they are the ONE pair on this surface where that is safe: they sit
+ * side by side, each labelled, each a radio with its own checked state. The tint is a confirmation
+ * of a choice already legible, never the way the choice is made.
+ */
+.tw-radio--buy:has(:checked) {
+  border-color: var(--cf-good);
+  background: var(--cf-good-wash);
+}
+
+.tw-radio--sell:has(:checked) {
+  border-color: var(--cf-critical);
+  background: var(--cf-critical-wash);
+}
+
+.tw-field--inline {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--cf-space-sm);
+}
+
+/*
+ * Everything that CHANGES WHAT AN ORDER DOES is in the open; this holds the settings that refine an
+ * order already understood — time in force, post-only, the reserve, self-trade prevention. Closed
+ * by default, and it is a `<details>`, so it survives with no JavaScript and announces its state.
+ */
+.tw-ticket__advanced {
+  border: 1px solid var(--cf-line);
+  border-radius: var(--cf-radius);
+  padding: var(--cf-space-md) var(--cf-space-lg);
+}
+
+.tw-ticket__advanced > summary {
+  cursor: pointer;
+  color: var(--cf-fg-dim);
+  font-size: var(--cf-text-sm);
+}
+
+.tw-ticket__advanced[open] > summary {
+  margin-bottom: var(--cf-space-lg);
+}
+
+/*
+ * What it will cost, restated in the market's own units before anything is sent. Bordered rather
+ * than tinted: it is neither good news nor bad, and colouring it either way would editorialise.
+ */
+.tw-cost {
+  margin: 0;
+  display: grid;
+  gap: var(--cf-space-2xs);
+  padding: var(--cf-space-md) var(--cf-space-lg);
+  border: 1px solid var(--cf-line);
+  border-radius: var(--cf-radius);
+  background: var(--cf-bg-sunken);
+  font-size: var(--cf-text-sm);
+}
+
+/* An estimate this bundle could not compute exactly. Dashed, so it does not read as a figure. */
+.tw-cost--unknown {
+  border-style: dashed;
+  color: var(--cf-fg-mute);
+}
+
+/*
+ * The preflight. These are ADVICE — the engine decides — so they are a `role="status"` list and
+ * they never disable the button. A form that refuses locally and a service that would have accepted
+ * is a bug nobody can see; a form that warns and submits is one the customer can overrule.
+ */
+.tw-preflight {
+  margin: 0;
+  padding: var(--cf-space-md) var(--cf-space-lg) var(--cf-space-md) var(--cf-space-2xl);
+  border: 1px solid var(--cf-warn);
+  border-radius: var(--cf-radius);
+  background: var(--cf-warn-wash);
+  color: var(--cf-warn-ink);
+  font-size: var(--cf-text-sm);
+}
+
+.tw-ticket__go {
+  width: 100%;
+  justify-content: center;
+}
+
+.tw-ticket__go--buy {
+  border-color: var(--cf-good);
+}
+
+.tw-ticket__go--sell {
+  border-color: var(--cf-critical);
+}
+
+/* What the engine did with it, in its own words, after the fact. */
+.tw-receipt {
+  padding: var(--cf-space-lg);
+  border: 1px solid var(--cf-line-strong);
+  border-radius: var(--cf-radius);
+  background: var(--cf-surface);
+  font-size: var(--cf-text-sm);
+}
+
+.tw-receipt__lead {
+  margin: 0 0 var(--cf-space-2xs);
+  color: var(--cf-fg);
+}
+
+.tw-receipt__body {
+  margin: 0;
+  color: var(--cf-fg-dim);
+}
+
+/* ---- the working / everything toggle ------------------------------------ */
+
+.tw-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cf-space-sm);
+  margin: var(--cf-space-xl) 0 0;
+}
+
+/*
+ * `.cf-btn--quiet` is this app's, like `--primary` and `--danger` above it: @cloudsforge/ui ships
+ * `.cf-btn` and `.cf-btn--ember` and nothing else, and a class the design system does not define
+ * renders an unstyled button rather than failing. Checked against `ui/packages/ui/src/ui.css`.
+ */
+.cf-btn--quiet {
+  border-color: var(--cf-line);
+  background: none;
+  color: var(--cf-fg-dim);
+}
+
+.cf-btn--quiet:hover:not(:disabled) {
+  color: var(--cf-fg);
+  border-color: var(--cf-line-strong);
+}
+
+/* ---- the order's own history -------------------------------------------- */
+
+/*
+ * Append-only, served verbatim by the service, and drawn as a timeline rather than a table because
+ * the question it answers is "what happened, in what order" — which a table of six columns makes
+ * you reconstruct.
+ */
+.tw-timeline {
+  list-style: none;
+  margin: var(--cf-space-lg) 0 0;
+  padding: 0 0 0 var(--cf-space-xl);
+  border-left: 2px solid var(--cf-line);
+}
+
+.tw-timeline__item {
+  position: relative;
+  padding: 0 0 var(--cf-space-xl);
+}
+
+.tw-timeline__item::before {
+  content: '';
+  position: absolute;
+  left: calc(-1 * var(--cf-space-xl) - 5px);
+  top: 0.45em;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cf-line-strong);
+}
+
+/* The three that end an order, marked so the end of the story is findable at a glance. */
+.tw-timeline__item--filled::before {
+  background: var(--cf-good);
+}
+
+.tw-timeline__item--cancelled::before,
+.tw-timeline__item--expired::before {
+  background: var(--cf-warn);
+}
+
+.tw-timeline__item--rejected::before {
+  background: var(--cf-critical);
+}
+
+.tw-timeline__head {
+  margin: 0;
+}
+
+.tw-timeline__body {
+  margin: var(--cf-space-3xs) 0 0;
+  color: var(--cf-fg-dim);
+  font-size: var(--cf-text-sm);
+}
+
+/* ---- custody ------------------------------------------------------------ */
+
+.tw-transfer {
+  margin: var(--cf-space-2xl) 0 0;
+  padding: var(--cf-space-xl);
+  border: 1px solid var(--cf-line);
+  border-radius: var(--cf-radius-lg);
+  background: var(--cf-surface);
+}
+
+/* ---- the terminal on a narrow screen ------------------------------------ */
+
+/*
+ * One column, and the TICKET FIRST. On a phone the three panels cannot sit side by side, and of the
+ * three the ticket is the one somebody opened the page to use — a reader who has to scroll past a
+ * thirty-row ladder to reach it will scroll past it in the other direction too.
+ */
+@media (max-width: 68rem) {
+  .tw-terminal {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tw-terminal__ticket {
+    order: -1;
+  }
 }
