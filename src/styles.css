@@ -83,41 +83,37 @@ body {
  * accessibility tree and in the tab order rather than only in the layout.
  */
 
-.wt-subnav {
-  position: sticky;
-  /* The bar's OWN height token, not a number copied out of it. */
-  top: var(--cf-bar-h);
-  z-index: 20;
-  background: var(--cf-bg);
-  border-bottom: 1px solid var(--cf-line);
-}
-
-.wt-subnav__inner {
-  max-width: var(--cf-max-w);
-  margin: 0 auto;
-  display: flex;
-  gap: var(--cf-space-xs);
-  padding: 0 var(--cf-space-xl);
-  overflow-x: auto;
-}
-
-.wt-subnav__link {
-  padding: var(--cf-space-md) var(--cf-space-sm);
-  color: var(--cf-fg-dim);
-  text-decoration: none;
-  font-size: var(--cf-text-md);
-  border-bottom: 2px solid transparent;
-  white-space: nowrap;
-}
-
-.wt-subnav__link:hover {
-  color: var(--cf-fg);
-}
-
-.wt-subnav__link.is-active {
-  color: var(--cf-fg);
-  border-bottom-color: var(--cf-accent);
-}
+/*
+ * `.wt-subnav`, `.wt-subnav__inner`, `.wt-subnav__link`, `:hover` and `.is-active` WERE HERE, for
+ * the same reason `.tw-skip` above is gone: they are `.cf-subnav*` in @cloudsforge/ui now, rendered
+ * by `SubNav` in `src/components/shell.tsx`.
+ *
+ * Measured 2026-08-10 across the eleven frontends that each declared this row themselves under
+ * eight prefixes, all plainly from one original. THIS copy was one of the good ones — it had
+ * `overflow-x: auto` and `white-space: nowrap`, so it scrolled on a phone instead of breaking its
+ * labels mid-word the way market-web's, mint-web's, worlds-web's and admin-web's did, and its
+ * `max-width` was already `var(--cf-max-w)` rather than one of the three literal measures the
+ * others had drifted to. Which is precisely why it is deleted rather than kept: the good fix was
+ * here, was right, and had no way of reaching the other ten. A private copy beside the shared one
+ * is what produced eleven of them, each correct on the day it was pasted.
+ *
+ * Three things this surface gains by the move, and none of them is a restyle:
+ *
+ *   1. `.cf-subnav__link--current` marks the section being read in a THIRD channel,
+ *      `font-weight: 600`, on top of the ink and the 2px underline that were here. The underline
+ *      is `--cf-accent`, a per-product hue, so a reader who separates no hues had one signal that
+ *      had gone grey and one that never varied.
+ *   2. The spacing scale steps back up: the links were padded `--cf-space-md --cf-space-sm`
+ *      against the shared `--cf-space-lg --cf-space-md`, so this row sat tighter here than the
+ *      same row on every surface a reader arrives from.
+ *   3. A focus ring. There was no `:focus-visible` rule in this block and there is no global one
+ *      in this file, so tabbing the sections fell back to the user agent's ring inside a
+ *      `overflow-x: auto` box. The shared rule draws it in `--cf-accent` at `outline-offset: -2px`,
+ *      which is what stops the scroll box clipping it.
+ *
+ * Nothing is layered back over it locally. A local override of a shared rule is a copy again, one
+ * declaration at a time.
+ */
 
 .wt-main {
   max-width: var(--cf-max-w);
