@@ -109,7 +109,7 @@ export function EquityCurve({ points }: { points: readonly EquityPoint[] }) {
       <figure className="tw-chart">
         <p className="tw-note" role="status">
           <strong>This curve cannot be drawn.</strong> {unreadable} of {points.length} point(s)
-          carry an amount this page cannot read as a whole number of Shards. The points are below,
+          carry an amount this page cannot read as a whole number of US cents. The points are below,
           exactly as they arrived — nothing here is being shown as a zero on their behalf.
         </p>
         <PointsTable points={points} />
@@ -163,8 +163,9 @@ function PointsTable({ points }: { points: readonly EquityPoint[] }) {
       <summary>The same points, as a table</summary>
       <table className="tw-table">
         <caption>
-          Every point on the curve above, as it arrived. Amounts are decimal strings in Shards,
-          unformatted, because this is the export path as well as the fallback.
+          Every point on the curve above, as it arrived. Amounts are decimal strings in whole US
+          cents, unformatted, because this is the export path as well as the fallback — 1000000 is
+          $10,000.00.
         </caption>
         <thead>
           <tr>

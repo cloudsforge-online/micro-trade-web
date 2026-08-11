@@ -36,12 +36,13 @@ import {
   barTime,
   botTone,
   fillTone,
+  groupDigits,
   modeName,
   percent,
   settlementTone,
-  shards,
   shortId,
-  signedShards,
+  signedUsd,
+  usd,
 } from '../lib/format.ts'
 import { useIdempotentMutation } from '../lib/mutation.ts'
 import { useResource } from '../lib/resource.ts'
@@ -121,29 +122,29 @@ export function BotPage() {
 
       <dl className="tw-facts">
         <Fact label="Allocated">
-          <span className="cf-num">{shards(record.allocation)} Shards</span>
+          <span className="cf-num">{usd(record.allocation)}</span>
         </Fact>
         <Fact label="Cash">
-          <span className="cf-num">{shards(record.cash)} Shards</span>
+          <span className="cf-num">{usd(record.cash)}</span>
         </Fact>
         <Fact label="Position">
-          <span className="cf-num">{shards(record.position)}</span>
+          <span className="cf-num">{groupDigits(record.position)}</span>
         </Fact>
         <Fact label="Equity, estimated">
-          <span className="cf-num">{shards(record.equity)} Shards</span>
+          <span className="cf-num">{usd(record.equity)}</span>
         </Fact>
         <Fact label="High-water mark">
-          <span className="cf-num">{shards(record.highWaterMark)} Shards</span>
+          <span className="cf-num">{usd(record.highWaterMark)}</span>
         </Fact>
         <Fact label="Performance fee">
           {/* `feeBps` is already basis points, so it goes to `percent` unscaled: 1500 → 15.00%. */}
           <span className="cf-num">{percent(String(record.feeBps))}</span>
         </Fact>
         <Fact label="Fee owed">
-          <span className="cf-num">{shards(record.feeOwed)} Shards</span>
+          <span className="cf-num">{usd(record.feeOwed)}</span>
         </Fact>
         <Fact label="Fee paid">
-          <span className="cf-num">{shards(record.feePaid)} Shards</span>
+          <span className="cf-num">{usd(record.feePaid)}</span>
         </Fact>
         <Fact label="Last bar evaluated">
           <span className="cf-num">{barTime(record.lastBarT)}</span>
@@ -188,7 +189,7 @@ export function BotPage() {
                 <th scope="col">State</th>
                 <th scope="col">Price</th>
                 <th scope="col">Quantity</th>
-                <th scope="col">Shards</th>
+                <th scope="col">Cash</th>
                 <th scope="col">Fee</th>
                 <th scope="col">What triggered it</th>
               </tr>
@@ -204,9 +205,9 @@ export function BotPage() {
                   {/* The service formats the price itself (`trade/src/money.ts`); this
                       bundle never divides a scaled integer by a power of ten in a float. */}
                   <td className="cf-num">{fill.price}</td>
-                  <td className="cf-num">{shards(fill.qty)}</td>
-                  <td className="cf-num">{signedShards(fill.shards)}</td>
-                  <td className="cf-num">{shards(fill.feeShards)}</td>
+                  <td className="cf-num">{groupDigits(fill.qty)}</td>
+                  <td className="cf-num">{signedUsd(fill.usdCents)}</td>
+                  <td className="cf-num">{usd(fill.feeUsdCents)}</td>
                   <td>
                     {fill.reason}
                     {fill.error && <span className="tw-dim"> — {fill.error}</span>}
@@ -252,14 +253,14 @@ export function BotPage() {
                   <td>
                     <StateBadge tone={settlementTone(row.status)} />
                   </td>
-                  <td className="cf-num">{shards(row.equity)}</td>
-                  <td className="cf-num">{shards(row.highWaterMark)}</td>
-                  <td className="cf-num">{shards(row.gain)}</td>
-                  <td className="cf-num">{shards(row.fee)}</td>
+                  <td className="cf-num">{usd(row.equity)}</td>
+                  <td className="cf-num">{usd(row.highWaterMark)}</td>
+                  <td className="cf-num">{signedUsd(row.gain)}</td>
+                  <td className="cf-num">{usd(row.fee)}</td>
                   {/* `attempted` is lower than `fee` when the wallet could not cover it. Showing
                       both is the only way a customer can see a partial collection happened. */}
-                  <td className="cf-num">{shards(row.attempted)}</td>
-                  <td className="cf-num">{shards(row.collected)}</td>
+                  <td className="cf-num">{usd(row.attempted)}</td>
+                  <td className="cf-num">{usd(row.collected)}</td>
                 </tr>
               ))}
             </tbody>
@@ -327,7 +328,7 @@ function Actions({
             {bot.mode === 'live' && (
               <>
                 {' '}
-                Starting this one puts {shards(bot.allocation)} Shards on hold at the ledger
+                Starting this one puts {usd(bot.allocation)} on hold at the ledger
                 before it trades anything.
               </>
             )}

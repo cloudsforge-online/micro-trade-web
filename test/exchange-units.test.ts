@@ -108,7 +108,7 @@ describe('minor units become the decimal a person reads, exactly', () => {
   })
 
   it('hands back an unparseable wire value verbatim rather than a NaN', () => {
-    // The rule `src/lib/format.ts` already keeps for Shards: a wrong-looking number a customer can
+    // The rule `src/lib/format.ts` already keeps for a bot's amounts: a wrong-looking number a customer can
     // quote to support is worth more than a tidy dash that destroys the evidence.
     assert.equal(units('n/a', 8), 'n/a')
     assert.equal(units('10000000', 8, { trim: true }), '0.1')

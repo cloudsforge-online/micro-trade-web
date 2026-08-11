@@ -25,7 +25,7 @@ import { createElement as h } from 'react'
 
 import { withScreen } from './dom.ts'
 import { EquityCurve } from '../src/components/equity.tsx'
-import { percent, profitFactor, shards, signedShards } from '../src/lib/format.ts'
+import { groupDigits, percent, profitFactor, signedUsd, usd } from '../src/lib/format.ts'
 import type { EquityPoint } from '../src/lib/trade.ts'
 
 const point = (t: number, equity: string, hold: string): EquityPoint =>
@@ -93,11 +93,11 @@ describe('the equity curve, when it cannot read an amount', () => {
 })
 
 describe('format.ts prints no digit for an amount it cannot read', () => {
-  const FORMATTERS = [
-    [shards, 'shards'],
-    [signedShards, 'signedShards'],
-    [percent, 'percent'],
+  const MONEY = [
+    [usd, 'usd'],
+    [signedUsd, 'signedUsd'],
   ] as const
+  const FORMATTERS = [...MONEY, [groupDigits, 'groupDigits'], [percent, 'percent']] as const
 
   it('an ABSENT amount produces no digit at all', () => {
     // The case the estate names explicitly: `BigInt('')` is `0n`, so an empty string is the one
@@ -115,20 +115,48 @@ describe('format.ts prints no digit for an amount it cannot read', () => {
     }
   })
 
+  it('an amount that is MISSING ENTIRELY is a visible dash, not an empty cell', () => {
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // THE micro-worlds DEFECT, ASSERTED HERE SO IT CANNOT HAPPEN TWICE.
+    //
+    // micro-worlds renamed `rewardShards`→`rewardWei`; worlds-web went on reading the old key,
+    // and `undefined` rendered as nothing at all. 47 rows on mainnet showed a blank amount for a
+    // year, and no test was red — because the tests pinned the FIELD NAME, and the field name they
+    // pinned still existed in the test's own fixture.
+    //
+    // The money formatters here are the only defence that does not depend on remembering: an
+    // amount this bundle failed to find comes out as a mark a person can see and report.
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    for (const [fn, name] of MONEY) {
+      for (const missing of [undefined, null, '', '   ']) {
+        assert.equal(fn(missing), '—', `${name} rendered a missing amount as something invisible`)
+      }
+    }
+  })
+
   it('an UNRECOGNISED amount is returned verbatim, not reformatted and not zeroed', () => {
     // `src/lib/format.ts`: "A value this function does not recognise is returned VERBATIM. A
     // wrong-looking number a customer can quote is worth more than a tidy NaN." A shape this
     // bundle does not expect on the wire must arrive on screen intact so it can be reported.
+    //
+    // The empty string is not in this list for the money formatters: it is ABSENCE, and the test
+    // above requires a dash for it. It stays in the list for the two that are not money.
     for (const [fn, name] of FORMATTERS) {
-      for (const odd of ['', ' ', 'n/a', '—', '1.5', '1e3', '0x10', '+5', '1_000', '99999999999999999999.']) {
+      for (const odd of ['n/a', '—', '1.5', '1e3', '0x10', '+5', '1_000', '99999999999999999999.']) {
+        assert.equal(fn(odd), odd, `${name} rewrote a value it does not understand`)
+      }
+    }
+    for (const [fn, name] of [[groupDigits, 'groupDigits'], [percent, 'percent']] as const) {
+      for (const odd of ['', ' ']) {
         assert.equal(fn(odd), odd, `${name} rewrote a value it does not understand`)
       }
     }
   })
 
   it('a real zero is still a zero', () => {
-    assert.equal(shards('0'), '0')
-    assert.equal(signedShards('0'), '0')
+    assert.equal(groupDigits('0'), '0')
+    assert.equal(usd('0'), '$0.00')
+    assert.equal(signedUsd('0'), '$0.00')
     assert.equal(percent('0'), '0.00%')
   })
 

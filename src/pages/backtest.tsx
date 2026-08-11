@@ -41,8 +41,8 @@ import {
   profitFactor,
   ratio,
   rate,
-  shards,
-  signedShards,
+  signedUsd,
+  usd,
 } from '../lib/format.ts'
 import { useResource } from '../lib/resource.ts'
 import { getBacktest, getBacktestResult, type Backtest, type BacktestMetrics } from '../lib/trade.ts'
@@ -90,7 +90,7 @@ export function BacktestPage() {
           <span className="cf-num">{backtest.seriesId}</span>
         </Fact>
         <Fact label="Starting cash">
-          <span className="cf-num">{shards(backtest.startCash)} Shards</span>
+          <span className="cf-num">{usd(backtest.startCash)}</span>
         </Fact>
         <Fact label="Fee charged">
           <span className="cf-num">{backtest.feeBps} bps</span>
@@ -212,7 +212,7 @@ function Report({ metrics, backtest }: { metrics: BacktestMetrics; backtest: Bac
         />
         <Metric
           label="Fees paid"
-          value={`${shards(metrics.feesPaidShards)} Shards`}
+          value={usd(metrics.feesPaidUsdCents)}
           note={`${backtest.feeBps} bps taken on each side of each trade, on top of ${backtest.slippageBps} bps of price moving away from you.`}
         />
         <Metric
@@ -232,12 +232,12 @@ function Report({ metrics, backtest }: { metrics: BacktestMetrics; backtest: Bac
         />
         <Metric
           label="Best trade"
-          value={`${signedShards(metrics.bestTradeShards)} Shards`}
+          value={signedUsd(metrics.bestTradeUsdCents)}
           note="Taken at the moment the position closed."
         />
         <Metric
           label="Worst trade"
-          value={`${signedShards(metrics.worstTradeShards)} Shards`}
+          value={signedUsd(metrics.worstTradeUsdCents)}
           note="Taken at the moment the position closed."
         />
       </div>
@@ -273,10 +273,10 @@ function Report({ metrics, backtest }: { metrics: BacktestMetrics; backtest: Bac
       </p>
       <dl className="tw-facts">
         <Fact label="Start equity">
-          <span className="cf-num">{shards(metrics.startEquity)} Shards</span>
+          <span className="cf-num">{usd(metrics.startEquity)}</span>
         </Fact>
         <Fact label="End equity">
-          <span className="cf-num">{shards(metrics.endEquity)} Shards</span>
+          <span className="cf-num">{usd(metrics.endEquity)}</span>
         </Fact>
       </dl>
     </div>

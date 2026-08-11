@@ -6,8 +6,8 @@
  * loses the fall entirely". A client that reads those back through `Number` to print them has
  * handed the rounding straight back.
  *
- * So `percent()` and `shards()` do their arithmetic on the STRING, and this file proves it with
- * values a double cannot hold.
+ * So `percent()`, `groupDigits()` and `usd()` do their arithmetic on the STRING, and this file
+ * proves it with values a double cannot hold.
  */
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
@@ -22,10 +22,11 @@ import {
   ratio,
   rate,
   relative,
+  groupDigits,
   settlementTone,
-  shards,
-  signedShards,
+  signedUsd,
   timestamp,
+  usd,
 } from '../src/lib/format.ts'
 import {
   type BacktestMetrics,
@@ -72,32 +73,74 @@ describe('basis points as a percentage, exactly', () => {
   })
 })
 
-describe('Shards, as an amount', () => {
+describe('a count, grouped and not otherwise touched', () => {
   it('groups in threes', () => {
-    assert.equal(shards('1000'), '1,000')
-    assert.equal(shards('1000000'), '1,000,000')
-    assert.equal(shards('100'), '100')
-    assert.equal(shards('0'), '0')
+    assert.equal(groupDigits('1000'), '1,000')
+    assert.equal(groupDigits('1000000'), '1,000,000')
+    assert.equal(groupDigits('100'), '100')
+    assert.equal(groupDigits('0'), '0')
   })
 
   it('groups a value beyond a double, unchanged', () => {
-    assert.equal(shards('123456789012345678901234567890'), '123,456,789,012,345,678,901,234,567,890')
+    assert.equal(groupDigits('123456789012345678901234567890'), '123,456,789,012,345,678,901,234,567,890')
   })
 
   it('keeps a negative sign outside the grouping', () => {
-    assert.equal(shards('-1234567'), '-1,234,567')
+    assert.equal(groupDigits('-1234567'), '-1,234,567')
   })
 
   it('returns a non-numeric value verbatim', () => {
-    assert.equal(shards('n/a'), 'n/a')
+    assert.equal(groupDigits('n/a'), 'n/a')
+  })
+
+  it('never inserts a decimal point, because a quantity is not money', () => {
+    // `groupDigits` renders a bot's open position and a fill's quantity — base-asset SMALLEST
+    // units. 100000000 of them is one whole BTC, not one million dollars. If this ever gains a
+    // point it has been confused with `usd` below, and every position on the surface is wrong.
+    assert.equal(groupDigits('100000000'), '100,000,000')
+  })
+})
+
+describe('money — whole US cents in, dollars out', () => {
+  it('puts the point two places from the right, always', () => {
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // THE ASSERTION THAT MAKES micro-org#418 A RE-DENOMINATION RATHER THAN A RELABEL.
+    //
+    // 1000000 was rendered "1,000,000 Shards" before, and a Shard was a cent, so the money was
+    // always $10,000.00. A rename that left the digits alone and changed the word would have
+    // claimed a hundred times the truth. These are the same integers the service always sent.
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    assert.equal(usd('1000000'), '$10,000.00')
+    assert.equal(usd('100'), '$1.00')
+    assert.equal(usd('1'), '$0.01')
+    assert.equal(usd('0'), '$0.00')
+  })
+
+  it('formats an amount beyond a double exactly, digit for digit', () => {
+    assert.equal(usd('123456789012345678901234567890'), '$1,234,567,890,123,456,789,012,345,678.90')
+  })
+
+  it('puts the minus outside the currency symbol', () => {
+    assert.equal(usd('-1234567'), '-$12,345.67')
+  })
+
+  it('returns a non-numeric value verbatim, and an absent one as a dash', () => {
+    assert.equal(usd('n/a'), 'n/a')
+    // NEVER a zero, and never a blank. A blank is how a renamed field hides: `undefined` reaches
+    // here whenever the service moves a key and this bundle has not followed, and the customer
+    // must see that something is missing rather than an empty cell.
+    assert.equal(usd(undefined), '—')
+    assert.equal(usd(null), '—')
+    assert.equal(usd(''), '—')
   })
 
   it('signs a positive value only where the sign carries meaning', () => {
-    // A fill's `shards` is signed: negative on a buy, positive on a sell
-    // (`trade/src/fills.ts`). A bare "1,000" in that column does not say which.
-    assert.equal(signedShards('1000'), '+1,000')
-    assert.equal(signedShards('-1000'), '-1,000')
-    assert.equal(signedShards('0'), '0')
+    // A fill's `usdCents` is signed: negative on a buy, positive on a sell
+    // (`trade/src/fills.ts`). A bare "$10.00" in that column does not say which.
+    assert.equal(signedUsd('1000'), '+$10.00')
+    assert.equal(signedUsd('-1000'), '-$10.00')
+    assert.equal(signedUsd('0'), '$0.00')
+    assert.equal(signedUsd(undefined), '—')
   })
 })
 

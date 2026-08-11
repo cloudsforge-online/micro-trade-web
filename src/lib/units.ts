@@ -36,7 +36,7 @@
  * converts a wire value without checking has a path where a missing amount becomes a confident
  * nought; and `BigInt('n/a')` throws from inside render, which does not spoil one figure but takes
  * the whole page down. Both were live in this repository once (`test/money-unknown.test.ts` is the
- * report). The rule this bundle already keeps for Shards is kept here: print NO DIGIT when the
+ * report). The rule this bundle already keeps for the bot amounts is kept here: print NO DIGIT when the
  * figure cannot be obtained.
  */
 
@@ -84,7 +84,7 @@ export function formatUnits(
 /**
  * A wire amount, straight to the decimal a person reads — or the string VERBATIM if it is not one.
  *
- * Verbatim rather than a dash, for the reason `src/lib/format.ts` gives for `shards`: a
+ * Verbatim rather than a dash, for the reason `src/lib/format.ts` gives for `usd`: a
  * wrong-looking number a customer can quote is worth more than a tidy `NaN`. A caller that wants
  * "unknown" rendered as absence tests `toMinor` for null itself and says so in words.
  *
