@@ -123,6 +123,27 @@ jobs:
           sparse-checkout: |
             src
 
+      # ══════════════════════════════════════════════════════════════════════════════════════════
+      # THE LIST OF RETIRED ASSET CODES, WHICH test/retired-currency.test.ts REFUSES TO HARDCODE.
+      #
+      # That test asserts no retired code reaches a reader of this product, and it reads the word
+      # list out of `RETIRED_ASSETS` in micro-contracts rather than spelling it here. A second list
+      # kept by hand is a list that goes stale: the next asset wound down would be caught by
+      # `contracts` and missed by this repository, which is precisely how SHARD survived
+      # micro-org#227 on these screens.
+      #
+      # It THROWS rather than skipping when this checkout is absent, so a workflow that dropped this
+      # step goes red instead of quietly asserting nothing. That is why this comment exists rather
+      # than a `continue-on-error`.
+      # ══════════════════════════════════════════════════════════════════════════════════════════
+      - uses: actions/checkout@v4
+        with:
+          repository: cloudsforge-online/micro-contracts
+          path: contracts
+          token: ${{ secrets.ESTATE_READ_TOKEN }}
+          sparse-checkout: |
+            packages/chain/src
+
       # The brand assets, so test/brand-chrome.test.ts can compare the bytes in public/ against the
       # source set rather than merely checking that a file with the right name exists.
       - uses: actions/checkout@v4

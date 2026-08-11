@@ -9,7 +9,7 @@
 import { Link } from 'react-router-dom'
 import { Empty, Failed, Forbidden, Loading } from '../components/states.tsx'
 import { StateBadge } from '../components/tone.tsx'
-import { botTone, modeName, shards, shortId } from '../lib/format.ts'
+import { botTone, modeName, usd, shortId } from '../lib/format.ts'
 import { useResource } from '../lib/resource.ts'
 import { listBots, type Bot } from '../lib/trade.ts'
 
@@ -98,13 +98,13 @@ function Row({ bot }: { bot: Bot }) {
         <StateBadge tone={botTone(bot.status)} />
       </td>
       <td>{bot.strategyId}</td>
-      <td className="cf-num">{shards(bot.allocation)}</td>
+      <td className="cf-num">{usd(bot.allocation)}</td>
       {/*
         "marked", in the header, because that is what it is: a tick writes `equity` from the price
         it could get at the time (`trade/src/bots.ts`), against a position that is still open.
       */}
-      <td className="cf-num">{shards(bot.equity)}</td>
-      <td className="cf-num">{shards(bot.feeOwed)}</td>
+      <td className="cf-num">{usd(bot.equity)}</td>
+      <td className="cf-num">{usd(bot.feeOwed)}</td>
     </tr>
   )
 }

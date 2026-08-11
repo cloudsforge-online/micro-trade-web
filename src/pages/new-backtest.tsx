@@ -227,17 +227,19 @@ export function NewBacktestPage() {
           <label className="tw-field">
             {/*
               The LABEL says US cents; the field, the state, the request body and the units on the
-              wire are all unchanged. This said "Starting cash (Shards)" until SHARD was retired,
-              and a new-backtest form is one of the last two places a user is invited to denominate
-              something new in an asset the estate no longer issues.
+              wire are all unchanged. This label moved first, ahead of the report it feeds, when the
+              asset it used to name was retired.
 
-              Nothing is re-based. The old help text already said a Shard is one US cent — SHARD
-              has `decimals: 0` and the peg was a hundred to the dollar — so the integer a user
-              types means exactly what it meant before, and the worked example is untouched.
+              Nothing is re-based. The old help text already said one of those units is one US cent
+              — the retired asset had `decimals: 0` and the peg was a hundred to the dollar — so the
+              integer a user types means exactly what it meant before, and the worked example is
+              untouched.
 
-              The report this run produces still prints Shards over figures the service returns as
-              `feesPaidShards` and friends (`src/pages/backtest.tsx`). Those are micro-org#226's:
-              a wire field is not copy, and the two will disagree until it lands.
+              micro-org#418 has since moved the report: the service returns `feesPaidUsdCents` and
+              friends, and `src/pages/backtest.tsx` renders them through `usd()`. The run this form
+              starts is now described in the same unit it was funded in, end to end.
+
+              THE BOX STILL TAKES CENTS, NOT DOLLARS — `pattern="[0-9]+"`, sent verbatim.
             */}
             <span className="tw-field__label">Starting cash (US cents)</span>
             <input

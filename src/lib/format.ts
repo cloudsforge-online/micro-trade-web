@@ -17,6 +17,7 @@
  * prints a metric. Nothing in this bundle may put a backtest figure next to a future tense.
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  */
+import { formatUnits, toMinor } from './units.ts'
 import type {
   FillRole,
   MarketStatus,
@@ -106,7 +107,7 @@ function pick(ms: number): [number, string] {
 /* ══════════════════════════════ amounts and proportions ══════════════════════════════ */
 
 /**
- * A Shards amount, grouped.
+ * A COUNT — not money. Thousands separators on a whole number, and nothing else.
  *
  * The value arrives as a decimal string and stays one — `amountTo` puts it on the wire as a string
  * precisely so it is never a double (`trade/src/money.ts`), and putting it through
@@ -114,18 +115,74 @@ function pick(ms: number): [number, string] {
  *
  * A value this function does not recognise is returned VERBATIM. A wrong-looking number a customer
  * can quote is worth more than a tidy `NaN`.
+ *
+ * This is what is left of `shards()` after micro-org#418 (see `usd` below): the grouping was always
+ * correct and the unit never was. Its callers are the two figures on this surface that are NOT
+ * money — a bot's open position and a fill's quantity, both in base-asset smallest units.
  */
-export function shards(value: string): string {
+export function groupDigits(value: string): string {
   const m = /^(-?)(\d+)$/.exec(value)
   if (!m) return value
   return `${m[1]}${(m[2] ?? '').replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
 }
 
-/** The same, with an explicit sign on a positive value. For a signed column, where 0 is neutral. */
-export function signedShards(value: string): string {
-  if (!/^-?\d+$/.test(value)) return value
-  if (value === '0') return '0'
-  return value.startsWith('-') ? shards(value) : `+${shards(value)}`
+/**
+ * MONEY. An integer number of US cents from the service, as dollars.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * THIS REPLACED `shards()`, AND THE UNIT IS THE POINT RATHER THAN THE NAME.
+ *
+ * micro-trade called this unit a "Shard" and printed the integer bare, so an allocation of 1,000,000
+ * cents rendered as `1,000,000 Shards` — which is $10,000.00. SHARD was retired
+ * (`contracts/packages/chain/src/index.ts`, `RETIRED_ASSETS`) and micro-org#418 re-denominated the
+ * service. It was the IDENTITY and not a re-basing: the peg is fixed at 100 Shards to the dollar
+ * and SHARD has `decimals: 0`, so one Shard was exactly one cent and no stored number moved
+ * (`trade/src/money.ts` carries the argument in full).
+ *
+ * That is why this is a different function rather than `shards()` with new copy on top. The old one
+ * printed the integer AS THE AMOUNT; this one reads it as minor units and puts the point in. A
+ * relabel would have left `1,000,000` on the screen under the word "dollars", which is a hundred
+ * times the truth — the single worst outcome available to a rename of a money surface.
+ *
+ * The split is `formatUnits(cents, 2)` from `src/lib/units.ts` — the same bigint arithmetic the
+ * exchange half of this bundle uses for every quote amount, rather than a second implementation
+ * that agrees with it today. There is no `Number` on this path.
+ *
+ * ── An absent value is a DASH, and never a zero and never a blank ─────────────────────────────
+ *
+ * `BigInt('')` is `0n`, so the obvious spelling turns a missing amount into a confident zero, and
+ * returning the input verbatim turns `undefined` into an empty cell that looks like a layout bug.
+ * Both hide a renamed field: micro-worlds renamed `rewardShards`→`rewardWei`, worlds-web kept
+ * reading the old name, and 47 rows on mainnet rendered a blank amount for a year because nothing
+ * was ever red. A dash is VISIBLE, and `test/render.test.ts` asserts the dollar amounts on these
+ * pages rather than the field names that carry them, so the same mistake here fails a test.
+ *
+ * A value that is neither absent nor an integer is returned VERBATIM, for the reason `timestamp()`
+ * gives: a customer who can quote the actual value can report it, and one who sees `$NaN` can only
+ * report that the site is broken.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ */
+export function usd(value: string | null | undefined): string {
+  if (value === null || value === undefined || value.trim().length === 0) return '—'
+  const cents = toMinor(value)
+  if (cents === null) return value
+  const negative = cents < 0n
+  return `${negative ? '-' : ''}$${formatUnits(negative ? -cents : cents, 2)}`
+}
+
+/**
+ * The same, with an explicit sign on a positive value. For a signed column, where 0 is neutral.
+ *
+ * A fill's cash movement, a settlement's gain and a backtest's best and worst trade are all signed,
+ * and a column where the losses carry a minus and the wins carry nothing reads as though the wins
+ * were absent.
+ */
+export function signedUsd(value: string | null | undefined): string {
+  if (value === null || value === undefined || value.trim().length === 0) return '—'
+  const cents = toMinor(value)
+  if (cents === null) return value
+  if (cents === 0n) return '$0.00'
+  return cents < 0n ? `-$${formatUnits(-cents, 2)}` : `+$${formatUnits(cents, 2)}`
 }
 
 /**
@@ -146,7 +203,7 @@ export function percent(bps: string): string {
   const value = BigInt(m[2] ?? '0')
   const whole = value / 100n
   const frac = (value % 100n).toString().padStart(2, '0')
-  return `${sign}${shards(whole.toString())}.${frac}%`
+  return `${sign}${groupDigits(whole.toString())}.${frac}%`
 }
 
 /**

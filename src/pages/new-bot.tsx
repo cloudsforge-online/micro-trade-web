@@ -273,19 +273,19 @@ export function NewBotPage() {
         <label className="tw-field">
           {/*
             The LABEL says US cents; the field, the state, the request body and the units on the
-            wire are all unchanged. This said "Allocation (Shards)" until SHARD was retired, and a
-            new-bot form is the last place a user is invited to denominate something new — an
-            invitation to fund a position in an asset the estate no longer issues.
+            wire are all unchanged. This label moved first, ahead of the read surfaces, when the
+            asset it used to name was retired. micro-org#418 has since moved the rest: the service
+            emits `usdCents`, and `bot.tsx`, `bots.tsx` and `components/equity.tsx` render it
+            through `usd()`. Nothing disagrees with this box any more.
 
-            US cents is not a re-basing. SHARD has `decimals: 0` and the peg was a hundred Shards
-            to the dollar, so the integer a user types means exactly what it meant before and the
-            worked example below is the same money it always was.
+            US cents is not a re-basing. The retired asset had `decimals: 0` and the peg was a
+            hundred to the dollar, so the integer a user types means exactly what it meant before
+            and the worked example below is the same money it always was.
 
-            Read surfaces still print "Shards" over amounts the ledger really does hold in SHARD —
-            `src/pages/bot.tsx`, `bots.tsx`, `components/equity.tsx`. That is deliberate and is
-            micro-org#226's to move: relabelling a figure the ledger records as SHARD would be a
-            false statement about money, whereas relabelling a box a user has not filled in yet is
-            not. Expect the two to disagree until #226 lands.
+            THE BOX STILL TAKES CENTS, NOT DOLLARS. It is `pattern="[0-9]+"` and the body is sent
+            verbatim, so a user who types `100` is allocating one dollar. The label and the worked
+            example are the only things standing between that and a hundredfold mistake — do not
+            let either drift into saying "dollars" without changing what is sent.
           */}
           <span className="tw-field__label">Allocation (US cents)</span>
           <input

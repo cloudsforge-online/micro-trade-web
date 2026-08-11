@@ -64,9 +64,9 @@
  *
  * `backtestView` and `botView` (`trade/src/server.ts`) put every amount on the wire as a
  * decimal string, and the comment above them says why: "`JSON.stringify` **throws** on a bigint".
- * A position in a token's smallest units does not survive an IEEE 754 double. Shards are whole
- * units (100 Shards = 1 USD, `trade/src/money.ts`), so a Shard balance would survive one — but
- * `qty` and `priceScaled` would not, and one rule is easier to keep than two.
+ * A position in a token's smallest units does not survive an IEEE 754 double. US cents are whole
+ * units (`trade/src/money.ts`), so a cash balance would survive one — but `qty` and
+ * `priceScaled` would not, and one rule is easier to keep than two.
  */
 import { api } from './api.ts'
 import type { OrderBookCapabilities } from './exchange.ts'
@@ -153,7 +153,8 @@ export type BacktestStatus = 'queued' | 'running' | 'complete' | 'failed'
  * frozen service reported profit factor in dollars for a while and "rendered as a profit factor of
  * 3067 next to ratios of 1.2". So:
  *
- *   * `…Shards` and `…Equity` are AMOUNTS, exact, as strings;
+ *   * `…UsdCents` and `…Equity` are AMOUNTS in whole US cents, exact, as strings — 1000000 is
+ *     $10,000.00, and `usd()` in `src/lib/format.ts` is the only thing that may put the point in;
  *   * `…Bps` are PROPORTIONS in basis points, exact, as strings (10000 = 100%, or break-even for
  *     profit factor);
  *   * `cagr`, `sharpe`, `sortino`, `calmar` are STATISTICS and are plain numbers, because they
@@ -172,9 +173,9 @@ export interface BacktestMetrics {
   readonly winRateBps: string
   /** Gross profit over gross loss. **Zero is the sentinel for "no losing trade"**, not a value. */
   readonly profitFactorBps: string
-  readonly feesPaidShards: string
-  readonly bestTradeShards: string
-  readonly worstTradeShards: string
+  readonly feesPaidUsdCents: string
+  readonly bestTradeUsdCents: string
+  readonly worstTradeUsdCents: string
   readonly trades: number
   readonly wins: number
   readonly losses: number
@@ -204,7 +205,7 @@ export interface Backtest {
   readonly strategyId: StrategyId
   readonly params: Readonly<Record<string, number>>
   readonly seed: number
-  /** Shards, as a decimal string. */
+  /** Whole US cents, as a decimal string. */
   readonly startCash: string
   readonly feeBps: number
   readonly slippageBps: number
@@ -242,7 +243,7 @@ export interface Bot {
   readonly seriesId: string
   readonly strategyId: StrategyId
   readonly params: Readonly<Record<string, number>>
-  /** Shards committed. For a live bot this becomes a ledger reservation on start. */
+  /** Whole US cents committed. For a live bot this becomes a ledger reservation on start. */
   readonly allocation: string
   /** The ledger reservation, once one exists. Null on a paper bot, always. */
   readonly reservationEntryId: string | null
@@ -291,9 +292,9 @@ export interface Fill {
   readonly price: string
   /** Base-asset smallest units. */
   readonly qty: string
-  /** Shards moved, SIGNED: negative on a buy, positive on a sell (`trade/src/fills.ts`). */
-  readonly shards: string
-  readonly feeShards: string
+  /** US cents moved, SIGNED: negative on a buy, positive on a sell (`trade/src/fills.ts`). */
+  readonly usdCents: string
+  readonly feeUsdCents: string
   readonly reason: string
   readonly status: FillStatus
   readonly entryId: string | null
@@ -344,10 +345,10 @@ export interface BacktestFill {
   readonly side: 'buy' | 'sell'
   readonly priceScaled: string
   readonly qty: string
-  readonly notionalShards: string
-  readonly feeShards: string
+  readonly notionalUsdCents: string
+  readonly feeUsdCents: string
   /** Absent on a buy — a buy realises nothing. */
-  readonly pnlShards?: string
+  readonly pnlUsdCents?: string
   readonly reason: string
 }
 
@@ -487,7 +488,7 @@ export interface CreateBacktestInput {
   readonly seriesId: string
   readonly strategyId: StrategyId
   readonly params?: Readonly<Record<string, number>>
-  /** Whole Shards, as a decimal string. Must be positive (`trade/src/server.ts`). */
+  /** Whole US cents, as a decimal string. Must be positive (`trade/src/server.ts`). */
   readonly startCash: string
   /**
    * Basis points, 0–5000 (`readBps`, `trade/src/server.ts`).
@@ -576,7 +577,7 @@ export interface CreateBotInput {
   readonly seriesId: string
   readonly strategyId: StrategyId
   readonly params?: Readonly<Record<string, number>>
-  /** Whole Shards, as a decimal string. Must be positive (`trade/src/server.ts`). */
+  /** Whole US cents, as a decimal string. Must be positive (`trade/src/server.ts`). */
   readonly allocation: string
   /**
    * The performance fee, in basis points. **The service defaults it to 1500 — fifteen per cent**

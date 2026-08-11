@@ -12,7 +12,7 @@
 import { Link } from 'react-router-dom'
 import { Empty, Failed, Forbidden, Loading } from '../components/states.tsx'
 import { ModelledTag, StateBadge } from '../components/tone.tsx'
-import { backtestTone, barTime, percent, shards, shortId } from '../lib/format.ts'
+import { backtestTone, barTime, percent, shortId, usd } from '../lib/format.ts'
 import { useResource } from '../lib/resource.ts'
 import { listBacktests, type Backtest } from '../lib/trade.ts'
 
@@ -101,7 +101,7 @@ function Row({ run }: { run: Backtest }) {
       <td className="cf-num">
         {run.fromT === null ? '—' : `${barTime(run.fromT)} → ${barTime(run.toT)}`}
       </td>
-      <td className="cf-num">{shards(run.startCash)}</td>
+      <td className="cf-num">{usd(run.startCash)}</td>
       {/*
         `metrics` is null until the run completes — `trade/src/backtests.ts` writes the column
         only on the complete branch. A dash is the honest answer; a zero would be a claim about a
