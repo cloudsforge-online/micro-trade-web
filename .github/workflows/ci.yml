@@ -240,7 +240,8 @@ jobs:
           #
           # This bundle serves a micro-trade with an order book and one without: `src/lib/orderbook.tsx`
           # treats an absent `orderBook` capability block as "no exchange here" and
-          # `test/terminal.test.ts` proves it then makes no /v1/exchange request at all. So the
+          # BJ-TRD-14 and BJ-TRD-15 in `test/journeys.test.ts` prove it then makes no
+          # /v1/exchange request at all. So the
           # count to expect depends on which service was checked out, and the floor is read from
           # the checkout rather than assumed — `test/trade.test.ts` refuses a PARTIAL exchange in
           # either case, which is where a renamed or missing route still shows up.

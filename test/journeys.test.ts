@@ -23,6 +23,24 @@
  *
  * Neither asserts the refusal. Both assert what the reader is shown; the refusals are
  * `trade/src/bots.ts`'s tests and are cited in `ownedBy`.
+ *
+ * ── The triple the exchange screens turn on ───────────────────────────────────────────────────
+ *
+ * BJ-TRD-14, -15 and -16 are the gate in front of every other exchange scenario, and it has THREE
+ * answers rather than two and a half:
+ *
+ *   The book is OFF — `/v1/capabilities` says so and carries the service's own sentence, which the
+ *   screen quotes verbatim rather than paraphrasing, and asks for no market data at all.
+ *
+ *   The order-book block is ABSENT — a `trade` older than the exchange — and the screen reaches the
+ *   same conclusion from silence, because reading `capabilities.orderBook.enabled` off a document
+ *   that has no such key throws inside render.
+ *
+ *   The capability read FAILED, and that is its own answer: "we could not check", with a retry.
+ *   Collapsing it into the first tells a customer their exchange is switched off on the strength of
+ *   a timeout, which is a claim about somebody else's deployment made by a network error. It is why
+ *   doc 22 gates BJ-TRD-16 as well as BJ-TRD-14 — the two screens look similar, which is exactly
+ *   the kind of pair a refactor collapses.
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  */
 import assert from 'node:assert/strict'
@@ -39,13 +57,19 @@ import { App } from '../src/app.tsx'
 import { AuthProvider } from '../src/lib/auth.tsx'
 import { ROUTES } from '../src/lib/routes.ts'
 import { BacktestPage } from '../src/pages/backtest.tsx'
+import { BalancesPage } from '../src/pages/balances.tsx'
 import { BotPage } from '../src/pages/bot.tsx'
 import { BotsPage } from '../src/pages/bots.tsx'
+import { MarketPage } from '../src/pages/market.tsx'
+import { MarketsPage } from '../src/pages/markets.tsx'
 import { NewBacktestPage } from '../src/pages/new-backtest.tsx'
 import { NewBotPage } from '../src/pages/new-bot.tsx'
+import { OrderPage } from '../src/pages/order.tsx'
+import { OrdersPage } from '../src/pages/orders.tsx'
 import { StrategiesPage } from '../src/pages/strategies.tsx'
 
 const ORIGIN = 'https://trade.cloudsforge.online'
+const SYMBOL = 'BTC-USD'
 const at = (p: string) => fileURLToPath(new URL(`../${p}`, import.meta.url))
 
 const page = (element: ReactElement, path: string): ReactElement =>
@@ -67,6 +91,30 @@ const botRoutes = (over: Routes = {}): Routes =>
     [`GET /v1/bots/${fx.BOT_ID}/settlements`]: { body: { settlements: [] } },
     [`GET /v1/bots/${fx.BOT_ID}/fills`]: { body: { fills: [] } },
     [`GET /v1/bots/${fx.BOT_ID}`]: { body: { bot: fx.bot() } },
+    ...over,
+  })
+
+const marketAt = (symbol = SYMBOL) => atRoute('/markets/:symbol', h(MarketPage), `/markets/${symbol}`)
+
+/** Every read the market screen makes, answered. A scenario overrides the one it is about. */
+const marketRoutes = (over: Routes = {}): Routes =>
+  signedIn({
+    'GET /v1/capabilities': { body: fx.capabilities() },
+    [`GET /v1/exchange/markets/${SYMBOL}/depth`]: {
+      body: { marketId: fx.MARKET_ID, symbol: SYMBOL, depth: fx.depth() },
+    },
+    [`GET /v1/exchange/markets/${SYMBOL}/ticker`]: { body: { ticker: fx.ticker() } },
+    [`GET /v1/exchange/markets/${SYMBOL}/trades`]: {
+      body: { marketId: fx.MARKET_ID, trades: [fx.trade()] },
+    },
+    [`GET /v1/exchange/markets/${SYMBOL}/candles`]: {
+      body: { marketId: fx.MARKET_ID, interval: '1m', candles: [fx.candle()] },
+    },
+    [`GET /v1/exchange/markets/${SYMBOL}`]: {
+      body: { market: fx.market(), bbo: { bid: '2499900', ask: '2500100' }, ticker: fx.ticker() },
+    },
+    'GET /v1/exchange/orders': { body: { orders: [] } },
+    'GET /v1/exchange/fills': { body: { fills: [] } },
     ...over,
   })
 
@@ -434,6 +482,744 @@ describe('BJ-TRD — Forge Trade', () => {
           'the page distinguished "not yours" from "no such bot", which is how ids get enumerated',
         )
         assert.match(s.text(), /no bot|not found|does not exist/i)
+      },
+    )
+  })
+
+  /* ── BJ-TRD-14 … 17: the gate in front of every other exchange scenario ─────────────────────── */
+
+  it('BJ-TRD-14 ★ T1: the book being off quotes the service and asks for no market data at all', async () => {
+    await withScreen(
+      marketAt(),
+      {
+        url: `${ORIGIN}/markets/${SYMBOL}`,
+        storage: fx.SIGNED_IN,
+        routes: signedIn({
+          'GET /v1/capabilities': { body: fx.capabilities(fx.ORDER_BOOK_OFF) },
+        }),
+      },
+      async (s) => {
+        assert.ok(
+          s.text().includes(fx.ORDER_BOOK_OFF.refusal as string),
+          `the gate paraphrased the service instead of quoting it: ${s.text()}`,
+        )
+        // "Nothing is broken and nothing needs retrying" — the flag being off is the ORDINARY case
+        // and the screen must not present it as a fault.
+        assert.match(s.text(), /Nothing is broken/i)
+
+        // And it asked for nothing else. A gate that renders the refusal AFTER firing six reads has
+        // spent the customer's rate-limit quota to learn what one unauthenticated call already said.
+        const exchange = s.api.wire.filter((w) => w.path.startsWith('/v1/exchange/'))
+        assert.deepEqual(exchange, [], 'the gate read market data before it knew there was a book')
+      },
+    )
+  })
+
+  it('BJ-TRD-15 T1: an order-book block absent entirely reaches the same conclusion', async () => {
+    // A `trade` older than the exchange answers `/v1/capabilities` with no `orderBook` key. Reading
+    // `capabilities.orderBook.enabled` off that throws inside render; the bundle must instead
+    // conclude "not switched on here", which is what the older service would say if it could.
+    await withScreen(
+      marketAt(),
+      {
+        url: `${ORIGIN}/markets/${SYMBOL}`,
+        storage: fx.SIGNED_IN,
+        routes: signedIn({ 'GET /v1/capabilities': { body: fx.capabilities(null) } }),
+      },
+      async (s) => {
+        assert.match(s.text(), /no order book on this deployment/i)
+        assert.match(s.text(), /does not report an exchange at all/i)
+        s.clean('BJ-TRD-15')
+      },
+    )
+  })
+
+  it('BJ-TRD-16 ★ T1: a capability read that FAILED is its own answer, not the refusal', async () => {
+    await withScreen(
+      marketAt(),
+      {
+        url: `${ORIGIN}/markets/${SYMBOL}`,
+        storage: fx.SIGNED_IN,
+        routes: signedIn({
+          'GET /v1/capabilities': { status: 503, body: fx.error('unavailable', 'nope') },
+        }),
+      },
+      async (s) => {
+        assert.match(s.text(), /could not check whether trading is switched on/i)
+        // NOT the refusal. Telling somebody their exchange is off because a request timed out is a
+        // claim about their deployment made by a network error.
+        assert.doesNotMatch(s.text(), /no order book on this deployment/i)
+        assert.ok(s.queryByRole('button', /try again|retry/i), 'a failed read offers no retry')
+      },
+    )
+  })
+
+  it('BJ-TRD-17 T1: the market screen opens when the book is on', async () => {
+    await withScreen(
+      marketAt(),
+      { url: `${ORIGIN}/markets/${SYMBOL}`, storage: fx.SIGNED_IN, routes: marketRoutes() },
+      async (s) => {
+        assert.ok(s.byRole('heading', /^BTC-USD$/), 'the market has no heading')
+        assert.ok(s.byRole('heading', 'The book'))
+        assert.ok(s.byRole('heading', 'Place an order'))
+        s.clean('BJ-TRD-17')
+      },
+    )
+  })
+
+  /* ── BJ-TRD-18 … 24: the depth ladder ──────────────────────────────────────────────────────── */
+
+  it('BJ-TRD-18 ★ T1: the asks are above the spread and the spread is above the bids', async () => {
+    await withScreen(
+      marketAt(),
+      { url: `${ORIGIN}/markets/${SYMBOL}`, storage: fx.SIGNED_IN, routes: marketRoutes() },
+      async (s) => {
+        // Price increases upward, so the two sides read as one axis and the gap between them is
+        // visibly the spread. Asserted in DOCUMENT ORDER, which is what a screen reader follows too.
+        const first = ladderRows(s).map((cells) => cells[0] ?? '')
+        assert.equal(first.length, 5, `the ladder has ${first.length} rows, not four levels and a spread`)
+        assert.match(first[0] as string, /^25,002\.00/, 'the asks are not worst-price-first')
+        assert.match(first[1] as string, /^25,001\.00/)
+        assert.match(first[2] as string, /^Spread/, 'the spread is not between the two sides')
+        assert.match(first[3] as string, /^24,999\.00/, 'the best bid is not immediately below the spread')
+        assert.match(first[4] as string, /^24,998\.00/, 'the bids are not best-price-first')
+      },
+    )
+  })
+
+  it('BJ-TRD-19 T1: the spread is a figure the reader can check against the two sides', async () => {
+    await withScreen(
+      marketAt(),
+      { url: `${ORIGIN}/markets/${SYMBOL}`, storage: fx.SIGNED_IN, routes: marketRoutes() },
+      async (s) => {
+        // 2500100 - 2499900 = 200 minor units = 2.00 quote. Computed by the page in bigint; this
+        // asserts the printed result, which is the only part a customer sees.
+        assert.match(s.text(), /2\.00 USD between the best bid and the best ask/)
+      },
+    )
+  })
+
+  it('BJ-TRD-20 T1: the total column accumulates in the base asset’s own decimals', async () => {
+    await withScreen(
+      marketAt(),
+      { url: `${ORIGIN}/markets/${SYMBOL}`, storage: fx.SIGNED_IN, routes: marketRoutes() },
+      async (s) => {
+        // 0.5 + 0.25 = 0.75 BTC cumulative on the bid side; 0.4 + 0.1 = 0.5 on the ask side, and the
+        // ask side accumulates FROM THE BEST PRICE so the worst level carries the whole 0.5. If the
+        // page were formatting quantities with the QUOTE decimals these would read 500000.00 and
+        // the test would say so — which is why the fixture's two scales differ.
+        const totals = ladderRows(s).map((cells) => [cells[1] ?? '', cells[2] ?? ''])
+        assert.deepEqual(totals[0], ['0.1', '0.5'], 'the worst ask does not carry the cumulative total')
+        assert.deepEqual(totals[1], ['0.4', '0.4'], 'the best ask should accumulate only itself')
+        assert.deepEqual(totals[3], ['0.5', '0.5'])
+        assert.deepEqual(totals[4], ['0.25', '0.75'])
+      },
+    )
+  })
+
+  it('BJ-TRD-21 T1: the published size caveat is on the screen, in words', async () => {
+    // A reserve order publishes `displayQty` and hides the rest. A customer reading a thin book
+    // that is not thin sizes their order wrongly, so this cannot live in a comment.
+    await withScreen(
+      marketAt(),
+      { url: `${ORIGIN}/markets/${SYMBOL}`, storage: fx.SIGNED_IN, routes: marketRoutes() },
+      async (s) => {
+        assert.match(s.text(), /a level can hold more than it shows — never less/i)
+      },
+    )
+  })
+
+  it('BJ-TRD-22 T1: an empty book is a state of the market, not a failure or a loading screen', async () => {
+    await withScreen(
+      marketAt(),
+      {
+        url: `${ORIGIN}/markets/${SYMBOL}`,
+        storage: fx.SIGNED_IN,
+        routes: marketRoutes({
+          [`GET /v1/exchange/markets/${SYMBOL}/depth`]: {
+            body: { marketId: fx.MARKET_ID, symbol: SYMBOL, depth: { bids: [], asks: [] } },
+          },
+        }),
+      },
+      async (s) => {
+        assert.match(s.text(), /The book is empty/i)
+        assert.match(s.text(), /the first limit order placed here becomes the book/i)
+        assert.doesNotMatch(s.text(), /did not load/i)
+      },
+    )
+  })
+
+  it('BJ-TRD-23 T1: a one-sided book says there is no spread rather than printing one', async () => {
+    await withScreen(
+      marketAt(),
+      {
+        url: `${ORIGIN}/markets/${SYMBOL}`,
+        storage: fx.SIGNED_IN,
+        routes: marketRoutes({
+          [`GET /v1/exchange/markets/${SYMBOL}/depth`]: {
+            body: { marketId: fx.MARKET_ID, symbol: SYMBOL, depth: { bids: fx.depth().bids, asks: [] } },
+          },
+        }),
+      },
+      async (s) => {
+        assert.match(s.text(), /Nothing is quoted on the selling side/i)
+      },
+    )
+  })
+
+  it('BJ-TRD-24 ★ T1: pressing a ladder price copies the decimal into the ticket and sends nothing', async () => {
+    await withScreen(
+      marketAt(),
+      { url: `${ORIGIN}/markets/${SYMBOL}`, storage: fx.SIGNED_IN, routes: marketRoutes() },
+      async (s) => {
+        // The accessible name carries the side in words, so a screen-reader user hearing the button
+        // list can tell a bid from an ask without the colour.
+        const bid = s.byRole('button', /24,999\.00 — copy this bid price into the order form/)
+        const before = s.api.wire.length
+        await s.click(bid)
+
+        // As a DECIMAL. This assertion is the one that found the hundredfold price error in
+        // `LadderRow` (it passed the wire amount, 2499900, straight into the field), which is why it
+        // compares the exact string rather than merely checking the box is no longer empty.
+        const price = s.byRole('textbox', /^Limit price/) as unknown as { value: string }
+        assert.equal(price.value, '24999.00', 'the price did not reach the ticket')
+        assert.equal(
+          s.api.wire.length,
+          before,
+          'clicking a price in the ladder sent a request; exploring the book must be free',
+        )
+      },
+    )
+  })
+
+  /* ── BJ-TRD-25 … 32: the order ticket ──────────────────────────────────────────────────────── */
+
+  it('BJ-TRD-25 T1: the ticket builds its controls from the published vocabularies', async () => {
+    // Not from a copy of the enums. A deployment that serves three order types must offer three,
+    // and one that serves a type this bundle has never heard of must still offer it.
+    await withScreen(
+      marketAt(),
+      {
+        url: `${ORIGIN}/markets/${SYMBOL}`,
+        storage: fx.SIGNED_IN,
+        routes: marketRoutes({
+          'GET /v1/capabilities': {
+            body: fx.capabilities(fx.orderBook({ orderTypes: ['limit'], timeInForce: ['gtc', 'ioc'] })),
+          },
+        }),
+      },
+      async (s) => {
+        const types = s.byRole('combobox', /^Order type/)
+        assert.equal(types.querySelectorAll('option').length, 1)
+        assert.equal(s.textOf(types.querySelector('option')), 'Limit')
+      },
+    )
+  })
+
+  it('BJ-TRD-26 T1: the cost is restated in the market’s own units before anything is sent', async () => {
+    await withScreen(
+      marketAt(),
+      { url: `${ORIGIN}/markets/${SYMBOL}`, storage: fx.SIGNED_IN, routes: marketRoutes() },
+      async (s) => {
+        await s.type(s.byRole('textbox', /^Limit price/), '25000.00')
+        await s.type(s.byRole('textbox', /^Quantity/), '0.5')
+
+        // 0.5 BTC at 25,000.00 is 12,500.00 USD. Both fee rates are shown because which one applies
+        // is not knowable before the order arrives: 10 bps and 25 bps of the 0.5 BTC a buyer
+        // receives are 0.00050000 and 0.00125000.
+        assert.match(s.text(), /12,500\.00 USD/)
+        assert.match(s.text(), /0\.00050000 – 0\.00125000 BTC/)
+        assert.match(s.text(), /maker 0\.1% if it rests, taker 0\.25% if it trades on arrival/)
+      },
+    )
+  })
+
+  it('BJ-TRD-27 T1: a quantity off the lot grid is warned about and NOT blocked', async () => {
+    // The note is advice; `validatePlacement` is the authority. A browser that refuses to send an
+    // order the engine would have accepted is a browser standing between a customer and their money.
+    await withScreen(
+      marketAt(),
+      { url: `${ORIGIN}/markets/${SYMBOL}`, storage: fx.SIGNED_IN, routes: marketRoutes() },
+      async (s) => {
+        await s.type(s.byRole('textbox', /^Limit price/), '25000.00')
+
+        // 0.000015 BTC is 1500 satoshis against a lot size of 1000, so it is expressible in this
+        // market's decimals and still off its grid — which is the case doc 22 names. The warning is
+        // asserted as well as the live button: a screen that silently accepted it would pass an
+        // assertion about the button alone, and the customer would learn the rule from a 400.
+        await s.type(s.byRole('textbox', /^Quantity/), '0.000015')
+        assert.match(s.text(), /Quantity must be a multiple of the lot size, 0\.00001 BTC\./)
+        assert.ok(
+          !s.byRole('button', 'Buy BTC').hasAttribute('disabled'),
+          'the preflight disabled the submit button',
+        )
+
+        // And a quantity finer than the market can express is the same shape of answer: said out
+        // loud, and still sendable.
+        await s.type(s.byRole('textbox', /^Quantity/), '0.000000015')
+        assert.match(s.text(), /at most 8 decimal places/)
+        assert.ok(
+          !s.byRole('button', 'Buy BTC').hasAttribute('disabled'),
+          'the preflight disabled the submit button',
+        )
+      },
+    )
+  })
+
+  it('BJ-TRD-28 ★ T1: integer minor units on the wire, and one key under a double submit', async () => {
+    let placements = 0
+    await withScreen(
+      marketAt(),
+      {
+        url: `${ORIGIN}/markets/${SYMBOL}`,
+        storage: fx.SIGNED_IN,
+        routes: marketRoutes({
+          'POST /v1/exchange/orders': () => {
+            placements += 1
+            return { status: 201, body: { order: fx.order(), fills: [] } }
+          },
+        }),
+      },
+      async (s) => {
+        await s.type(s.byRole('textbox', /^Limit price/), '24999.00')
+        await s.type(s.byRole('textbox', /^Quantity/), '0.1')
+
+        const go = s.byRole('button', 'Buy BTC')
+        s.clickNoFlush(go)
+        s.clickNoFlush(go)
+        await s.settle()
+
+        const sent = s.api.matching('POST /v1/exchange/orders')
+        assert.equal(placements, sent.length)
+        const keys = new Set(sent.map((w) => w.headers['idempotency-key']))
+        assert.equal(
+          keys.size,
+          1,
+          `a double submit produced ${keys.size} idempotency keys, so the service could not replay`,
+        )
+        assert.ok([...keys][0], 'the placement carried no idempotency key at all')
+
+        // The wire body, which is the whole reason `src/lib/units.ts` exists: 0.1 BTC at eight
+        // decimals is exactly 10000000 satoshis, and 24999.00 at two is 2499900 cents.
+        const body = sent[0]?.json as Record<string, unknown>
+        assert.equal(body['qty'], '10000000')
+        assert.equal(body['price'], '2499900')
+        assert.equal(body['symbol'], SYMBOL)
+        assert.equal(body['side'], 'buy')
+        assert.equal(typeof body['qty'], 'string', 'a quantity went over the wire as a JSON number')
+      },
+    )
+  })
+
+  it('BJ-TRD-29 T1: the receipt renders what the engine did, rather than a toast that disappears', async () => {
+    await withScreen(
+      marketAt(),
+      {
+        url: `${ORIGIN}/markets/${SYMBOL}`,
+        storage: fx.SIGNED_IN,
+        routes: marketRoutes({
+          'POST /v1/exchange/orders': {
+            status: 201,
+            body: {
+              order: fx.order({ status: 'filled', filledQty: '10000000', averagePrice: '2500000' }),
+              fills: [fx.fill({ qty: '10000000' })],
+            },
+          },
+        }),
+      },
+      async (s) => {
+        await s.type(s.byRole('textbox', /^Limit price/), '24999.00')
+        await s.type(s.byRole('textbox', /^Quantity/), '0.1')
+        await s.click(s.byRole('button', 'Buy BTC'))
+        await s.settle(20)
+
+        // A `role="status"` receipt, which is announced and which STAYS. What the engine did with an
+        // order is not something to show for four seconds and take away.
+        const receipt = s.allByRole('status').map((el) => s.textOf(el)).join(' ')
+        assert.match(receipt, /Filled\./)
+        assert.match(receipt, /1 fill\(s\), 0\.1 BTC in total/)
+        assert.match(receipt, /of 25,000\.00 USD/)
+        // The order id is a link, so the trail that explains it is one press away.
+        assert.ok(s.byRole('link', fx.ORDER_ID.slice(0, 8)))
+      },
+    )
+  })
+
+  it('BJ-TRD-30 ★ T1: the receipt survives the reload it triggers itself', async () => {
+    // The companion to BJ-TRD-29. Placing an order re-reads all six resources, and every one of
+    // those reads puts its resource back into the loading state — so a page that gates on
+    // `state === 'loading'` rather than on having no data throws the ticket away at exactly the
+    // moment the customer is reading the answer to what they just did.
+    await withScreen(
+      marketAt(),
+      {
+        url: `${ORIGIN}/markets/${SYMBOL}`,
+        storage: fx.SIGNED_IN,
+        routes: marketRoutes({
+          'POST /v1/exchange/orders': { status: 201, body: { order: fx.order(), fills: [] } },
+        }),
+      },
+      async (s) => {
+        await s.type(s.byRole('textbox', /^Limit price/), '24999.00')
+        await s.type(s.byRole('textbox', /^Quantity/), '0.1')
+        await s.click(s.byRole('button', 'Buy BTC'))
+        await s.settle(20)
+
+        // The second round of reads went out…
+        assert.ok(
+          s.api.matching(`GET /v1/exchange/markets/${SYMBOL}/depth`).length >= 2,
+          'the page did not re-read the book after placing an order',
+        )
+        // …and the ticket is the same ticket, not a fresh one.
+        assert.equal((s.byRole('textbox', /^Quantity/) as unknown as { value: string }).value, '0.1')
+        assert.equal(
+          (s.byRole('textbox', /^Limit price/) as unknown as { value: string }).value,
+          '24999.00',
+        )
+      },
+    )
+  })
+
+  it('BJ-TRD-31 T1: a refresh that FAILS leaves the stale figures up and says they are stale', async () => {
+    let reads = 0
+    await withScreen(
+      marketAt(),
+      {
+        url: `${ORIGIN}/markets/${SYMBOL}`,
+        storage: fx.SIGNED_IN,
+        routes: marketRoutes({
+          [`GET /v1/exchange/markets/${SYMBOL}`]: () => {
+            reads += 1
+            return reads === 1
+              ? {
+                  body: {
+                    market: fx.market(),
+                    bbo: { bid: '2499900', ask: '2500100' },
+                    ticker: fx.ticker(),
+                  },
+                }
+              : { status: 503, body: fx.error('unavailable', 'The market data is unavailable.') }
+          },
+          'POST /v1/exchange/orders': { status: 201, body: { order: fx.order(), fills: [] } },
+        }),
+      },
+      async (s) => {
+        await s.type(s.byRole('textbox', /^Limit price/), '24999.00')
+        await s.type(s.byRole('textbox', /^Quantity/), '0.1')
+        await s.click(s.byRole('button', 'Buy BTC'))
+        await s.settle(20)
+
+        assert.ok(reads >= 2, 'the second read never happened, so this scenario proved nothing')
+        assert.match(s.text(), /The last refresh failed/)
+        assert.match(s.text(), /as it was a moment ago/)
+        // A book five seconds old is worth more to somebody holding an open order than an error page
+        // with nothing on it, so the whole screen is still there.
+        assert.ok(s.byRole('heading', 'Place an order'), 'the ticket went away on a failed refresh')
+        assert.match(s.text(), /25,000\.00/)
+        assert.ok(s.byRole('button', 'Try again now'))
+      },
+    )
+  })
+
+  it('BJ-TRD-32 T1: a refused order keeps the ticket on screen and quotes the request id', async () => {
+    await withScreen(
+      marketAt(),
+      {
+        url: `${ORIGIN}/markets/${SYMBOL}`,
+        storage: fx.SIGNED_IN,
+        routes: marketRoutes({
+          'POST /v1/exchange/orders': {
+            status: 400,
+            body: fx.error('below_min_notional', 'The order is worth less than this market accepts.'),
+            requestId: 'req-terminal-1',
+          },
+        }),
+      },
+      async (s) => {
+        await s.type(s.byRole('textbox', /^Limit price/), '24999.00')
+        await s.type(s.byRole('textbox', /^Quantity/), '0.001')
+        await s.click(s.byRole('button', 'Buy BTC'))
+
+        const alert = s.allByRole('alert').map((el) => s.textOf(el)).join(' ')
+        // The service's own sentence, verbatim: a browser that paraphrased a refusal would be
+        // guessing at a rule it was written against rather than the one that ran. The rule itself is
+        // `trade`'s and is cited in `ownedBy`.
+        assert.match(alert, /worth less than this market accepts/)
+        assert.match(alert, /req-terminal-1/)
+        // And the form is still there, still holding what was typed.
+        assert.ok(s.byRole('button', 'Buy BTC'))
+        assert.equal((s.byRole('textbox', /^Quantity/) as unknown as { value: string }).value, '0.001')
+      },
+    )
+  })
+
+  /* ── BJ-TRD-33 … 38: every control explains itself, to a keyboard as well as to a mouse ─────── */
+
+  it('BJ-TRD-33 ★ T1: the explanation is a real button in the tab order, not a title attribute', async () => {
+    await withScreen(
+      marketAt(),
+      { url: `${ORIGIN}/markets/${SYMBOL}`, storage: fx.SIGNED_IN, routes: marketRoutes() },
+      async (s) => {
+        const trigger = s.byRole('button', 'What does Spread mean?')
+        assert.equal(trigger.tagName.toLowerCase(), 'button')
+        assert.equal(trigger.getAttribute('type'), 'button')
+        assert.ok(
+          s.tabbables().includes(trigger),
+          'the explanation is not reachable by keyboard, which is what a title attribute already was',
+        )
+        // And it is not ALSO a `title`: the attribute reaches no touch device and no keyboard
+        // (`src/components/tooltip.tsx` records the full list), so carrying one here would be the
+        // rejected mechanism kept alive beside the built one and free to drift from it.
+        assert.ok(!trigger.hasAttribute('title'), 'the trigger carries a title attribute as well')
+      },
+    )
+  })
+
+  it('BJ-TRD-34 T1: opening one announces itself as a tooltip and describes its own trigger', async () => {
+    await withScreen(
+      marketAt(),
+      { url: `${ORIGIN}/markets/${SYMBOL}`, storage: fx.SIGNED_IN, routes: marketRoutes() },
+      async (s) => {
+        const trigger = s.byRole('button', 'What does Spread mean?')
+        assert.equal(trigger.getAttribute('aria-expanded'), 'false')
+        assert.equal(s.allByRole('tooltip').length, 0)
+
+        await s.click(trigger)
+
+        assert.equal(trigger.getAttribute('aria-expanded'), 'true')
+        const bubble = s.allByRole('tooltip')
+        assert.equal(bubble.length, 1)
+        const id = trigger.getAttribute('aria-describedby')
+        assert.ok(id, 'the open tooltip is not referenced by aria-describedby')
+        assert.equal(bubble[0]?.getAttribute('id'), id)
+        assert.match(s.textOf(bubble[0]), /gap between the best buy offer and the best sell offer/i)
+      },
+    )
+  })
+
+  it('BJ-TRD-35 T1: Escape dismisses it, per SC 1.4.13, without moving the pointer', async () => {
+    await withScreen(
+      marketAt(),
+      { url: `${ORIGIN}/markets/${SYMBOL}`, storage: fx.SIGNED_IN, routes: marketRoutes() },
+      async (s) => {
+        const trigger = s.byRole('button', 'What does Spread mean?')
+        await s.click(trigger)
+        assert.equal(s.allByRole('tooltip').length, 1)
+
+        await s.press('Escape')
+
+        assert.equal(s.allByRole('tooltip').length, 0)
+        assert.equal(trigger.getAttribute('aria-expanded'), 'false')
+      },
+    )
+  })
+
+  it('BJ-TRD-36 T1: the trigger toggles, so the same control both opens and shuts', async () => {
+    await withScreen(
+      marketAt(),
+      { url: `${ORIGIN}/markets/${SYMBOL}`, storage: fx.SIGNED_IN, routes: marketRoutes() },
+      async (s) => {
+        const trigger = s.byRole('button', 'What does Spread mean?')
+        await s.click(trigger)
+        await s.click(trigger)
+        assert.equal(s.allByRole('tooltip').length, 0)
+      },
+    )
+  })
+
+  it('BJ-TRD-37 T1: every trigger names its term, so a button list is navigable', async () => {
+    // Thirty buttons all called "help" is a list nobody can navigate. Each name is a question about
+    // its own term, which is what makes the rotor useful on this screen at all.
+    await withScreen(
+      marketAt(),
+      { url: `${ORIGIN}/markets/${SYMBOL}`, storage: fx.SIGNED_IN, routes: marketRoutes() },
+      async (s) => {
+        const triggers = s
+          .allByRole('button')
+          .map((el) => el.getAttribute('aria-label') ?? '')
+          .filter((name) => name.startsWith('What does '))
+        assert.ok(triggers.length >= 8, `only ${triggers.length} explanations on the market screen`)
+        assert.equal(new Set(triggers).size, triggers.length, `two triggers share a name: ${triggers}`)
+      },
+    )
+  })
+
+  it('BJ-TRD-38 T1: what changes what an order DOES is explained in the open, not behind a bubble', async () => {
+    // The rule `src/components/tooltip.tsx` states: a customer who never opens a single bubble must
+    // still be able to place an order they understand. These sentences are `tw-field__help` text.
+    await withScreen(
+      marketAt(),
+      { url: `${ORIGIN}/markets/${SYMBOL}`, storage: fx.SIGNED_IN, routes: marketRoutes() },
+      async (s) => {
+        assert.equal(s.allByRole('tooltip').length, 0, 'a bubble was open before anything was pressed')
+        const text = s.text()
+        assert.match(text, /Rests on the book at the price you name/i)
+        assert.match(text, /you spend USD/i)
+        assert.match(text, /This sends a real order to a real book/i)
+      },
+    )
+  })
+
+  /* ── BJ-TRD-39 … 40: a reader who cannot tell red from green loses nothing ──────────────────── */
+
+  it('BJ-TRD-39 ★ T1: the tape says which side crossed the spread, in words', async () => {
+    await withScreen(
+      marketAt(),
+      {
+        url: `${ORIGIN}/markets/${SYMBOL}`,
+        storage: fx.SIGNED_IN,
+        routes: marketRoutes({
+          [`GET /v1/exchange/markets/${SYMBOL}/trades`]: {
+            body: {
+              marketId: fx.MARKET_ID,
+              trades: [fx.trade(), fx.trade({ id: 'second', takerSide: 'sell' })],
+            },
+          },
+        }),
+      },
+      async (s) => {
+        assert.match(s.text(), /Bought/)
+        assert.match(s.text(), /Sold/)
+      },
+    )
+  })
+
+  it('BJ-TRD-40 T1: the candle chart has a table view carrying the same numbers', async () => {
+    // BJ-A11Y-08's property, applied to the candles. The drawing is optional; the numbers are not.
+    await withScreen(
+      marketAt(),
+      { url: `${ORIGIN}/markets/${SYMBOL}`, storage: fx.SIGNED_IN, routes: marketRoutes() },
+      async (s) => {
+        // The caption carries the extremes as a person reads them…
+        assert.match(s.text(), /High 26,000\.00, low 23,500\.00 USD/)
+
+        // …and the table carries every bucket as the WIRE holds it: unformatted minor units, because
+        // that table is the export path as well as the fallback, and a comma in a number somebody is
+        // about to paste into a spreadsheet is a defect rather than a courtesy.
+        const table = s.allByRole('table').find((el) => /Bucket start/.test(s.textOf(el)))
+        assert.ok(table, 'the chart has no table view at all')
+        const cells = [...table.querySelectorAll('tbody td')].map((el) => s.textOf(el))
+        assert.deepEqual(cells.slice(0, 5), ['2400000', '2600000', '2350000', '2500000', '150000000'])
+      },
+    )
+  })
+
+  /* ── BJ-TRD-41 … 44: the markets list, the orders surface and the balances screen ───────────── */
+
+  it('BJ-TRD-41 T1: the market list links each market to its own screen and states the fees', async () => {
+    await withScreen(
+      page(h(MarketsPage), '/markets'),
+      {
+        url: `${ORIGIN}/markets`,
+        storage: fx.SIGNED_IN,
+        routes: signedIn({
+          'GET /v1/capabilities': { body: fx.capabilities() },
+          'GET /v1/exchange/markets': {
+            body: { markets: [fx.market(), fx.market({ id: 'm2', symbol: 'LTC-USD', baseAsset: 'LTC' })] },
+          },
+        }),
+      },
+      async (s) => {
+        assert.ok(s.byRole('link', 'BTC-USD'))
+        assert.ok(s.byRole('link', 'LTC-USD'))
+        // 10 and 25 bps, printed as percentages by the integer helper rather than by a float.
+        assert.match(s.text(), /0\.1%/)
+        assert.match(s.text(), /0\.25%/)
+      },
+    )
+  })
+
+  it('BJ-TRD-42 ★ T1: cancelling sends a DELETE and NO idempotency key, and names the order', async () => {
+    await withScreen(
+      page(h(OrdersPage), '/orders'),
+      {
+        url: `${ORIGIN}/orders`,
+        storage: fx.SIGNED_IN,
+        routes: signedIn({
+          'GET /v1/capabilities': { body: fx.capabilities() },
+          'GET /v1/exchange/markets': { body: { markets: [fx.market()] } },
+          [`DELETE /v1/exchange/orders/${fx.ORDER_ID}`]: {
+            body: { order: fx.order({ status: 'cancelled' }) },
+          },
+          'GET /v1/exchange/orders': { body: { orders: [fx.order()] } },
+        }),
+      },
+      async (s) => {
+        // The accessible name says WHICH order, because a table of working orders offers one of
+        // these controls per row and "Cancel" heard eight times names nothing.
+        const cancel = s.byRole('button', new RegExp(`^Cancel order ${fx.ORDER_ID.slice(0, 8)}$`))
+        await s.click(cancel)
+        const sent = s.api.matching(`DELETE /v1/exchange/orders/${fx.ORDER_ID}`)
+        assert.equal(sent.length, 1)
+        assert.equal(
+          sent[0]?.headers['idempotency-key'],
+          undefined,
+          'the cancel carried a key; the service takes none and the order id in the path is it',
+        )
+      },
+    )
+  })
+
+  it('BJ-TRD-43 T1: an order’s history is rendered as the engine wrote it, in order', async () => {
+    await withScreen(
+      atRoute('/orders/:id', h(OrderPage), `/orders/${fx.ORDER_ID}`),
+      {
+        url: `${ORIGIN}/orders/${fx.ORDER_ID}`,
+        storage: fx.SIGNED_IN,
+        routes: signedIn({
+          'GET /v1/capabilities': { body: fx.capabilities() },
+          [`GET /v1/exchange/markets/${SYMBOL}`]: {
+            body: { market: fx.market(), bbo: { bid: '2499900', ask: '2500100' }, ticker: fx.ticker() },
+          },
+          [`GET /v1/exchange/orders/${fx.ORDER_ID}/events`]: {
+            body: {
+              orderId: fx.ORDER_ID,
+              events: [
+                fx.orderEvent(),
+                fx.orderEvent({
+                  seq: '2',
+                  kind: 'reduced',
+                  qty: '5000000',
+                  detail: 'Self-trade prevention reduced this order against your own.',
+                }),
+              ],
+            },
+          },
+          [`GET /v1/exchange/orders/${fx.ORDER_ID}`]: { body: { order: fx.order() } },
+          'GET /v1/exchange/fills': { body: { fills: [] } },
+        }),
+      },
+      async (s) => {
+        s.before('Accepted onto the book', 'Reduced in size', 'the trail is out of order')
+        // The engine's own sentence, verbatim. `reduced` is the event a customer has no other way to
+        // understand: their size shrank with no fill against it.
+        assert.match(s.text(), /Self-trade prevention reduced this order against your own\./)
+      },
+    )
+  })
+
+  it('BJ-TRD-44 T1: balances render the service’s own total rather than two strings added', async () => {
+    await withScreen(
+      page(h(BalancesPage), '/balances'),
+      {
+        url: `${ORIGIN}/balances`,
+        storage: fx.SIGNED_IN,
+        routes: signedIn({
+          'GET /v1/capabilities': { body: fx.capabilities() },
+          'GET /v1/exchange/markets': { body: { markets: [fx.market()] } },
+          'GET /v1/exchange/balances': { body: { balances: [fx.balance()] } },
+          'GET /v1/exchange/transfers': { body: { transfers: [fx.transfer()] } },
+        }),
+      },
+      async (s) => {
+        const text = s.text()
+        assert.match(text, /7,500\.10/)
+        assert.match(text, /2,499\.90/)
+        assert.match(text, /10,000\.00/)
+        // Held is not lost money and the screen says so, because "why can I not withdraw all of it"
+        // is the question this page exists to answer.
+        assert.match(text, /it is still yours, and you cannot spend it twice/i)
+        assert.match(text, /anything held by an open order stays until that order is done/i)
       },
     )
   })
@@ -886,6 +1672,11 @@ describe('the catalogue and this file agree', () => {
   })
 
   it('a scenario whose outcome depends on a server rule carries an ownedBy path', () => {
+    // `terminal` is here in the BJ-TRD-08 sense — "stop is terminal", a state machine the service
+    // owns — and it predates the exchange screens by a release. The trading screen is called the
+    // market screen throughout `journeys.ts` so that BJ-TRD-14 … 44 are not all demanded an
+    // `ownedBy` for naming the thing they run against. Widening the pattern to spell out which
+    // sense is meant would be loosening the guard to suit the prose.
     const REFUSAL = /\b(refus|denie|denial|reject|owner-scoped|terminal|kill switch|403|409|4xx)\w*/i
     for (const s of SCENARIOS) {
       if (s.blocked) continue
@@ -954,6 +1745,22 @@ async function arm(s: Screen, name: RegExp): Promise<Element> {
   const commit = s.allByRole('button').find((el) => name.test(s.textOf(el)))
   assert.ok(commit, `no commit control matching ${String(name)}`)
   return commit
+}
+
+/**
+ * The depth ladder's rows, cell by cell.
+ *
+ * Scoped to the order-book table rather than read off `s.text()` on purpose: the ticker at the top
+ * of the market screen prints "24,999.00 / 25,001.00" too, so a document-order assertion over the
+ * whole page would be comparing the ladder against the summary above it and would pass or fail for
+ * reasons that have nothing to do with the book.
+ */
+function ladderRows(s: Screen): string[][] {
+  const table = s.allByRole('table').find((el) => /Order book/.test(s.textOf(el)))
+  assert.ok(table, 'there is no order-book table on the page at all')
+  return [...table.querySelectorAll('tbody tr')].map((row) =>
+    [...row.querySelectorAll('th, td')].map((cell) => s.textOf(cell)),
+  )
 }
 
 /* ── fixtures that need the page's own types ────────────────────────────────────────────────── */
