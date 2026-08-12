@@ -318,8 +318,9 @@ describe('every route this bundle names is really registered by the service', ()
    *
    * This bundle already proves it works against one. `src/lib/orderbook.tsx` reads
    * GET /v1/capabilities and treats an ABSENT `orderBook` block as "this deployment has no
-   * exchange" — the same answer as the flag being off — and `test/terminal.test.ts` asserts that
-   * in that state the app makes no `/v1/exchange/` request at all. So a service with no exchange
+   * exchange" — the same answer as the flag being off — and BJ-TRD-14 and BJ-TRD-15 in
+   * `test/journeys.test.ts` assert that in that state the app makes no `/v1/exchange/` request at
+   * all. So a service with no exchange
    * routes is a deployment this app is designed to serve, and asserting those routes exist
    * unconditionally would contradict a scenario this suite already holds.
    *
