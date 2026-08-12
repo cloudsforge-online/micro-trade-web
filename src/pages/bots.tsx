@@ -5,11 +5,15 @@
  *
  * The equity column is a MARK, not a settlement: it is whatever the last tick computed against
  * whatever price was available then. It is labelled as such rather than presented as a balance.
+ *
+ * And the column beside it says WHAT that price was — a market of independent sources, a figure
+ * CloudsForge set, or a paper bot's own bar close. micro-org#368: those three produce identical
+ * digits and mean three different things, and this list used to print only the digits.
  */
 import { Link } from 'react-router-dom'
 import { Empty, Failed, Forbidden, Loading } from '../components/states.tsx'
 import { StateBadge } from '../components/tone.tsx'
-import { botTone, modeName, usd, shortId } from '../lib/format.ts'
+import { botTone, markTone, modeName, usd, shortId } from '../lib/format.ts'
 import { useResource } from '../lib/resource.ts'
 import { listBots, type Bot } from '../lib/trade.ts'
 
@@ -71,6 +75,7 @@ export function BotsPage() {
                 <th scope="col">Strategy</th>
                 <th scope="col">Allocated</th>
                 <th scope="col">Equity (estimated)</th>
+                <th scope="col">Marked against</th>
                 <th scope="col">Fee owed</th>
               </tr>
             </thead>
@@ -104,6 +109,15 @@ function Row({ bot }: { bot: Bot }) {
         it could get at the time (`trade/src/bots.ts`), against a position that is still open.
       */}
       <td className="cf-num">{usd(bot.equity)}</td>
+      {/*
+        A column of its own, next to the figure it qualifies. Two bots can hold the same equity to
+        the cent with one of them valued by a market and the other by a price CloudsForge set
+        (`trade/src/bots.ts`, migration 11), and a list that showed only the digits would present
+        those as the same claim.
+      */}
+      <td>
+        <StateBadge tone={markTone(bot.equityPriceSource)} />
+      </td>
       <td className="cf-num">{usd(bot.feeOwed)}</td>
     </tr>
   )

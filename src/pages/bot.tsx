@@ -37,6 +37,7 @@ import {
   botTone,
   fillTone,
   groupDigits,
+  markTone,
   modeName,
   percent,
   settlementTone,
@@ -93,6 +94,7 @@ export function BotPage() {
 
   const record = bot.data.bot
   const tone = botTone(record.status)
+  const mark = markTone(record.equityPriceSource)
 
   return (
     <section className="tw-page">
@@ -133,6 +135,14 @@ export function BotPage() {
         <Fact label="Equity, estimated">
           <span className="cf-num">{usd(record.equity)}</span>
         </Fact>
+        {/*
+          Beside the figure, not in a footnote: the number above and the number a market agreed
+          with are the same digits, and `bots.equity_price_source` (`trade/src/bots.ts`,
+          migration 11) is the only thing that tells them apart.
+        */}
+        <Fact label="Marked against">
+          <StateBadge tone={mark} />
+        </Fact>
         <Fact label="High-water mark">
           <span className="cf-num">{usd(record.highWaterMark)}</span>
         </Fact>
@@ -162,9 +172,13 @@ export function BotPage() {
 
       <p className="tw-report__note">
         <strong>The equity figure is an estimate, not cash in hand.</strong> Each pass records it
-        from whatever price was available at that moment, against a position still open. The
-        performance fee is worked out against the high-water mark above, never against the capital
-        you put in — which is precisely what stops one climb being billed twice.
+        from whatever price was available at that moment, against a position still open.{' '}
+        {/*
+          The sentence changes with the source, and it has to: a note that read the same under an
+          administered price as under a market one would be this page saying nothing, at length.
+        */}
+        {mark.meaning} The performance fee is worked out against the high-water mark above, never
+        against the capital you put in — which is precisely what stops one climb being billed twice.
       </p>
 
       <h2 className="tw-section__title">Every trade it made</h2>
