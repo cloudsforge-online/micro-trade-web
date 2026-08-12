@@ -131,6 +131,19 @@ export function BacktestPage() {
       {backtest.status === 'complete' && (
         <>
           <h2 className="tw-section__title">What the money did</h2>
+          {/*
+            A live bot carries `equityPriceSource` because its mark could have come from a market
+            or from a price an operator set (micro-org#368). A run cannot: `runBacktest` marks at
+            `bar.c` and never calls pricing (`trade/src/backtest.ts`). So the provenance is a
+            sentence rather than a field — one that is true of every point by construction, and
+            that a reader would otherwise have to assume.
+          */}
+          <p className="tw-report__note">
+            Every point on this curve is marked at the close of the bar it sits on. Nothing in a
+            run is valued at a quoted price, so no figure here depends on what any source was
+            saying at the time — unlike a live bot, whose page names what its equity was marked
+            against.
+          </p>
           {result.state === 'loading' ? (
             <p className="tw-note">Drawing the curve…</p>
           ) : result.data ? (

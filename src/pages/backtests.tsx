@@ -8,6 +8,11 @@
  * only for an admin principal and is otherwise passed through `subjectUserId`, which refuses a
  * mismatch — so from a customer bundle it can only ever be the caller's own id or a 403. An
  * act-as-anyone-shaped control with no reachable behaviour is worse than no control.
+ *
+ * No mark-provenance column, and that is not an omission: `runBacktest` marks at each bar's close
+ * and never calls pricing (`trade/src/backtest.ts`), so every run on this list has the same
+ * provenance and it is stated once above the table. A live bot has a column instead, because its
+ * mark could have come from a market or from a price an operator set — micro-org#368.
  */
 import { Link } from 'react-router-dom'
 import { Empty, Failed, Forbidden, Loading } from '../components/states.tsx'
@@ -56,8 +61,8 @@ export function BacktestsPage() {
             output of a simulation over bars that have already happened.
           */}
           <p className="tw-table__caption">
-            Both figures in this table come out of a simulation over bars that already closed.{' '}
-            <ModelledTag />
+            Both figures in this table come out of a simulation over bars that already closed, and
+            each run is marked at those closes rather than at any quoted price. <ModelledTag />
           </p>
           <div className="tw-scroll">
             <table className="tw-table">

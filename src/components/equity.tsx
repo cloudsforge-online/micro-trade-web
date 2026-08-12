@@ -37,6 +37,18 @@
  * The rows carry the values as they arrived, as strings. Formatting them would be a second opinion
  * about a number this component has gone to some trouble not to have one about.
  *
+ * ## Every point here has ONE provenance, and it is not a quote
+ *
+ * A live bot's stored equity is marked against whatever pricing answered at that moment, and
+ * `bots.equity_price_source` records which — a market of independent sources, or a figure an
+ * operator set (micro-org#368, `trade/src/bots.ts`). A BACKTEST has no such column and needs none:
+ * `runBacktest` walks bars and marks at `bar.c` (`trade/src/backtest.ts`), never calling pricing at
+ * all, so a curve has one provenance by construction.
+ *
+ * That is stated on the chart rather than left to be inferred. "Marked at each bar's close" is a
+ * narrower claim than the reader would otherwise make, and a curve that said nothing would be read
+ * as prices somebody could have traded at.
+ *
  * ## And a value it cannot read is not a zero
  *
  * `BigInt('')` is `0n`. Not a throw, not a NaN — zero. So a point that arrived without an amount
@@ -149,7 +161,8 @@ export function EquityCurve({ points }: { points: readonly EquityPoint[] }) {
             : beatHold > 0n
               ? 'Finished ahead of buy-and-hold.'
               : 'Finished behind buy-and-hold.'}{' '}
-          Modelled — not a promise.
+          Every point is marked at that bar&rsquo;s close, never at a quoted price. Modelled — not a
+          promise.
         </span>
       </figcaption>
     </figure>
@@ -165,7 +178,8 @@ function PointsTable({ points }: { points: readonly EquityPoint[] }) {
         <caption>
           Every point on the curve above, as it arrived. Amounts are decimal strings in whole US
           cents, unformatted, because this is the export path as well as the fallback — 1000000 is
-          $10,000.00.
+          $10,000.00. Each row is marked at that bar&rsquo;s close; no figure here was priced by a
+          quote.
         </caption>
         <thead>
           <tr>

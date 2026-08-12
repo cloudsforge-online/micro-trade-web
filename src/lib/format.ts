@@ -339,6 +339,98 @@ export function botTone(status: BotStatus): Tone {
   }
 }
 
+/**
+ * What a bot's stored equity was priced against — `trade/src/bots.ts`, migration 11.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * A MARK AGAINST A PRICE SOMEBODY SET IS NOT THE SAME NUMBER AS A MARK AGAINST A MARKET.
+ *
+ * Pricing serves EMBER as `administered` — one operator-set figure, `sourceCount: 0`, and by
+ * design it does not decay. Every other asset on the board comes back `market` with four
+ * independent sources behind it. Both arrive here as the same string of digits, and this bundle
+ * rendered them identically until micro-org#368: a customer looking at their own equity could not
+ * tell a valuation the market agreed with from one CloudsForge chose.
+ *
+ * So the two say DIFFERENT WORDS, and the administered one carries a warn tone as well, because a
+ * label that appeared on both would be the same silence with more ink.
+ *
+ * `null` is not a fifth flavour of price. It is the absence of a mark, and it reads as one: no tick
+ * has valued this bot yet, so there is nothing to state a provenance for.
+ *
+ * The parameter is `string | null | undefined` rather than the union, deliberately, and both of the
+ * last two matter:
+ *
+ *   * the vocabulary is the SERVICE'S. A word added there before it is added here must not fall
+ *     through to a confident answer — the rule this module already states for amounts ("A value
+ *     this function does not recognise is returned VERBATIM"), applied to a provenance;
+ *   * `undefined` is what a MISSING FIELD looks like, and a `switch` with no case for it hands back
+ *     a badge with no word in it. That is the micro-worlds defect: worlds-web went on reading a
+ *     renamed key, `undefined` rendered as nothing at all, and 47 rows on mainnet showed a blank
+ *     for a year with no test red. A `trade` older than migration 11 serves exactly that shape, so
+ *     it is a case rather than a hypothetical, and it reads as the absence of a mark — which is
+ *     true of every bot such a service could describe.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ */
+export function markTone(source: string | null | undefined): Tone {
+  switch (source) {
+    case 'market':
+      return {
+        tone: 'good',
+        glyph: '●',
+        word: 'MARKET',
+        meaning: 'Priced against a median of independent sources at the moment of the mark.',
+      }
+    case 'administered':
+      return {
+        tone: 'warn',
+        glyph: '▲',
+        word: 'PRICE WE SET',
+        meaning:
+          'No market prices this asset. It is valued against a figure CloudsForge sets, which ' +
+          'moves when we change it and not before — so this equity is our valuation, not the ' +
+          'market’s.',
+      }
+    case 'bar':
+      return {
+        tone: 'mute',
+        glyph: '◐',
+        word: 'ITS OWN BARS',
+        meaning:
+          'A paper bot is valued at the close of the last bar in its own series. No price was ' +
+          'quoted for it and no money is at stake.',
+      }
+    case 'unknown':
+      return {
+        tone: 'warn',
+        glyph: '▲',
+        word: 'UNRECOGNISED',
+        meaning:
+          'The service named a price source this page does not know, so what the figure was ' +
+          'valued against cannot be stated here. Please quote this to support.',
+      }
+    case null:
+    case undefined:
+    case '':
+      return {
+        tone: 'mute',
+        glyph: '○',
+        word: 'NOT YET MARKED',
+        meaning:
+          'No tick has valued this bot. The equity shown is the capital allocated to it, not a ' +
+          'valuation of anything it holds.',
+      }
+    default:
+      return {
+        tone: 'warn',
+        glyph: '▲',
+        word: source,
+        meaning:
+          'The service named a price source this page does not know, so what the figure was ' +
+          'valued against cannot be stated here. Please quote this to support.',
+      }
+  }
+}
+
 /** The four fill states — `trade/src/fills.ts`. */
 export function fillTone(status: FillStatus): Tone {
   switch (status) {

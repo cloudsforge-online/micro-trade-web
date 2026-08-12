@@ -53,6 +53,10 @@ export function bot(over: Partial<Bot> = {}): Bot {
     cash: '100000',
     position: '0',
     equity: '100000',
+    // Null, because this bot is a draft and no tick has marked it. `insertBot` seeds `equity` from
+    // the allocation — capital committed, not a valuation — so a fixture that claimed a price
+    // source here would be a shape the service never writes (`trade/src/bots.ts`).
+    equityPriceSource: null,
     highWaterMark: '100000',
     feeBps: 2000,
     feeOwed: '0',

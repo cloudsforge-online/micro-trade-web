@@ -233,6 +233,28 @@ export interface Backtest {
 export type BotMode = 'paper' | 'live'
 export type BotStatus = 'draft' | 'running' | 'paused' | 'stopped' | 'errored'
 
+/**
+ * What the stored equity was priced against — `trade/src/bots.ts`, migration 11.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * TWO OF THESE FOUR ARE NOT A PRICE ANYBODY TRADED AT, AND THAT IS THE WHOLE POINT.
+ *
+ * `market` is pricing's median of independent sources. `administered` is a number an operator set
+ * — pricing serves EMBER that way today, with `sourceCount: 0`, and an administered price does not
+ * decay by design. A position marked against one is worth what the operator says it is worth, and
+ * until this field existed nothing on the wire told the two apart, so no screen could either.
+ *
+ * `bar` is a PAPER bot, marked at the close of its own series' last bar; it never calls pricing at
+ * all. `unknown` is a word this build does not recognise — the service coerces rather than guess,
+ * because filing an unfamiliar source under `market` would report an administered mark as a market
+ * one, which is micro-org#368 read backwards.
+ *
+ * Null on a bot that has never been marked. `insertBot` seeds `equity` from the allocation, which
+ * is capital committed rather than a valuation, so null is a statement and not a gap.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ */
+export type EquityPriceSource = 'market' | 'administered' | 'bar' | 'unknown'
+
 /** One bot, as `botView` puts it on the wire (`trade/src/server.ts`). */
 export interface Bot {
   readonly id: string
@@ -250,6 +272,13 @@ export interface Bot {
   readonly cash: string
   readonly position: string
   readonly equity: string
+  /**
+   * What the figure above was priced against, recorded by the tick that wrote it.
+   *
+   * Written with `equity` and never apart from it — `updateBot` (`trade/src/bots.ts`) throws on a
+   * patch carrying one without the other. Null means no tick has marked this bot yet.
+   */
+  readonly equityPriceSource: EquityPriceSource | null
   /**
    * The highest equity this bot has ever been billed at.
    *
