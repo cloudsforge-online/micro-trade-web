@@ -9,7 +9,7 @@
  * rather than reimplemented: `SkipLink` first in the document, `MainRegion` around the page, and
  * `CookieBanner` last. See the note beside each.
  */
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
   CloudsForgeBar,
   CloudsForgeFooter,
@@ -24,8 +24,13 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { PRODUCT, hosts } from '../lib/hosts.ts'
 import { NAV, ROUTES } from '../lib/routes.ts'
 import { useSession } from '../lib/auth.tsx'
+import { setViewedNetwork, viewedNetwork, type ViewedNetwork } from '../lib/viewed.ts'
 
 export function AppShell({ unregistered = false }: { unregistered?: boolean }) {
+  // The viewed network: in-tab memory, defaulting to the hostname's own (micro-org#459).
+  // `setViewedNetwork` runs first in the handler below so the remounted tree reads the new value
+  // on its very first render.
+  const [viewed, setViewed] = useState<ViewedNetwork>(viewedNetwork())
   const { account, signIn, signOut } = useSession()
 
   return (
@@ -65,12 +70,28 @@ export function AppShell({ unregistered = false }: { unregistered?: boolean }) {
         host and from `trade.<apex>`, and a literal would be right on exactly one of them — the same
         argument the whole of lib/hosts.ts makes, and the rule `.github/workflows/ci.yml` enforces.
       */}
+      {/*
+        In-app network context (micro-org#459, the combined view). The reader's choice lives in
+        `lib/viewed.ts` — module memory, never storage — and the `key` on the Outlet below is the
+        refetch mechanism: switching remounts the page tree, and `apiBase()` reads `viewedHosts()`,
+        so the same page re-reads itself from the other estate WITHOUT going anywhere. The band and
+        the switcher both follow the selection, so testnet data under a mainnet address bar is
+        never unmarked. The bar also stamps `?net=` onto its product links, which is what carries
+        the choice across a product switch — every surface is its own origin, so nothing else can.
+      */}
       <CloudsForgeBar
         current={PRODUCT}
         account={account}
         onSignIn={() => signIn()}
         onSignOut={signOut}
         mining={miningOnHub(hosts().hub)}
+        networkSwitch={{
+          selected: viewed,
+          onSelect: (n) => {
+            setViewedNetwork(n)
+            setViewed(n)
+          },
+        }}
       />
       {/*
         THE STRIP OF SECTIONS, AND IT IS THE SHARED ONE NOW.
@@ -140,7 +161,7 @@ export function AppShell({ unregistered = false }: { unregistered?: boolean }) {
             <code className="cf-num">trade</code> surface.
           </p>
         )}
-        <Outlet />
+        <Outlet key={viewed} />
       </MainRegion>
 
       {/*
