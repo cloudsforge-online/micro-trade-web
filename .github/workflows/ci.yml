@@ -812,8 +812,27 @@ jobs:
           }
 
           index_html=$(curl -s -m 5 "http://127.0.0.1:8080$BASE" || true)
-          assets=$(grep -oE '/assets/[^"]+\.js' <<<"$index_html" || true)
-          asset=${assets%%$'\n'*}
+          # ── TAKE THE SRC AS VITE WROTE IT, RATHER THAN MATCHING A SUBSTRING OF IT ──────────────
+          #
+          # This was `grep -oE '/assets/[^"]+\.js'`, which found the RIGHT TEXT IN THE WRONG PLACE
+          # the moment the bundle moved to a folder: vite emits `src="/trade/assets/index-x.js"`,
+          # and an unanchored pattern matches from `/assets` onward, silently handing back a path
+          # with the mount cut off. The probe then asked for `/assets/index-x.js`, got the
+          # `location /` 404 — which is nginx doing its job — read `no-store` off the 404 body, and
+          # reported "a hashed asset has the wrong Cache-Control". A correct server, a green-looking
+          # cause, and a red build.
+          #
+          # `grep -o` restarts at successive offsets and treats each as a fresh start, so `^` and a
+          # leading `/` mean nothing to it. The estate has been bitten by this before in a place
+          # that mattered much more than a cache header. So match the ATTRIBUTE — the quote is a
+          # boundary the file guarantees — and take what is inside it, whole.
+          asset=$(tr '<' '\n' <<<"$index_html" | sed -n 's/.* src="\([^"]*\.js\)".*/\1/p' | head -1)
+          # And prove it is the mounted spelling, or the fix above has quietly come undone.
+          case "$asset" in
+            "$BASE"/*) : ;;
+            "") echo "::error::no module script in the shell at $BASE — the probe below would pass vacuously"; exit 1 ;;
+            *) echo "::error::the shell's asset is '$asset', which does not start with $BASE"; exit 1 ;;
+          esac
           for target in "http://127.0.0.1:8080$BASE" "http://127.0.0.1:8080$BASE/bots" "http://127.0.0.1:8080$asset"; do
             [ -n "$asset" ] || [ "$target" != "http://127.0.0.1:8080" ] || continue
             check "$target" X-Content-Type-Options "nosniff" "$target"
