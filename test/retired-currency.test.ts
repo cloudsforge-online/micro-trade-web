@@ -74,7 +74,9 @@ import { BacktestsPage } from '../src/pages/backtests.tsx'
 import { NewBotPage } from '../src/pages/new-bot.tsx'
 import { NewBacktestPage } from '../src/pages/new-backtest.tsx'
 
-const ORIGIN = 'https://trade.cloudsforge.online'
+// The page ROOT, which carries the mount since wave 3b moved this surface to `<apex>/trade`.
+// Every use below is `${ORIGIN}/<router path>`, so this is the one line that has to know.
+const ORIGIN = 'https://cloudsforge.online/trade'
 
 const atRoute = (pattern: string, element: ReactElement, path: string): ReactElement =>
   h(

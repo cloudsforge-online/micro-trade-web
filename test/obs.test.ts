@@ -18,7 +18,7 @@ const event = (n: number) => envelope({ app: 'trade', type: 'T', message: `m${n}
 
 describe('the queue bound', () => {
   it('keeps the newest events when a page is throwing in a loop', () => {
-    installWindow('https://trade.cloudsforge.online/')
+    installWindow('https://cloudsforge.online/trade/')
     let queue = [] as ReturnType<typeof envelope>[]
     for (let i = 0; i < 40; i += 1) queue = enqueueBounded(queue, event(i))
     // A loop's thousandth exception is identical to its first; the state just before the tab was
@@ -31,10 +31,10 @@ describe('the queue bound', () => {
 
 describe('the envelope', () => {
   it('stamps the page the event came from', () => {
-    installWindow('https://trade.cloudsforge.online/reports?tab=1')
+    installWindow('https://cloudsforge.online/trade/reports?tab=1')
     const wrapped = event(1)
-    assert.equal(wrapped.attributes['url'], 'https://trade.cloudsforge.online/reports?tab=1')
-    assert.equal(wrapped.route, '/reports', 'the route is the column Lantern groups on')
+    assert.equal(wrapped.attributes['url'], 'https://cloudsforge.online/trade/reports?tab=1')
+    assert.equal(wrapped.route, '/trade/reports', 'the route is the column Lantern groups on')
     assert.equal(
       wrapped.attributes['release'],
       'unknown',
@@ -50,7 +50,7 @@ describe('the envelope', () => {
    * reports as `202 {"stored":0}`.
    */
   it('carries a kind from Lantern’s closed set, never a bare type', () => {
-    installWindow('https://trade.cloudsforge.online/')
+    installWindow('https://cloudsforge.online/trade/')
     const wrapped = envelope({ app: 'trade', type: 'NetworkError', message: 'boom' })
     assert.equal(wrapped.kind, 'fetch_error')
     assert.ok(!('type' in wrapped), 'there is no `type` column; it must not sit at the top level')
@@ -58,7 +58,7 @@ describe('the envelope', () => {
   })
 
   it('keeps the columnless fields inside attributes, where the jsonb column is', () => {
-    installWindow('https://trade.cloudsforge.online/')
+    installWindow('https://cloudsforge.online/trade/')
     const wrapped = envelope({
       app: 'trade',
       type: 'WindowError',
@@ -85,7 +85,7 @@ describe('the envelope', () => {
   })
 
   it('rounds a duration to a whole millisecond, because value_ms is an INTEGER column', () => {
-    installWindow('https://trade.cloudsforge.online/')
+    installWindow('https://cloudsforge.online/trade/')
     const wrapped = envelope({ app: 'trade', type: 'PageLoad', message: '/', valueMs: 12.7 })
     assert.equal(wrapped.valueMs, 13)
     assert.equal(wrapped.kind, 'page_load')

@@ -14,6 +14,15 @@ import { defineConfig } from 'vite'
  */
 export default defineConfig({
   plugins: [react()],
+  // ── THE MOUNT, AND IT IS AN ADDRESS RATHER THAN AN ENVIRONMENT ────────────────────────────────
+  //
+  // `/trade` is the same string on localhost, on testnet, on mainnet and in a preview: it is a
+  // fact about how the estate composes this surface's URLs, not about which estate serves it.
+  //
+  // TRAILING SLASH REQUIRED. vite joins `base` to an asset name by concatenation, so `/trade`
+  // emits `/tradeassets/index-a1b2.js` — a 404 for the bundle on every page, with a build that
+  // succeeds and a dev server that is unaffected because it serves from memory.
+  base: '/trade/',
   resolve: {
     // @cloudsforge/ui is a `link:` dependency, so its own node_modules holds a second copy of
     // React. Two copies means two dispatchers, and the shared bar would throw on its first

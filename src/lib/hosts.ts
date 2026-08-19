@@ -26,7 +26,7 @@
  * None of this is visible in production: the bundle and trade share `trade.<apex>` there, so
  * `apiBase()` is `''` and every request is relative.
  */
-import { cloudsforgeHosts, type CloudsForgeHosts, type SurfaceKey } from '@cloudsforge/ui'
+import { apiBaseFor, cloudsforgeHosts, type CloudsForgeHosts, type SurfaceKey } from '@cloudsforge/ui'
 import { viewedHosts } from './viewed.ts'
 
 /**
@@ -44,24 +44,26 @@ export const APP_NAME = 'trade-web'
 /**
  * The base URL for this app's OWN API, which is `trade`.
  *
- * In production the SPA and `micro-trade` are the same origin — nginx serves the bundle, the
- * service serves `/v1` behind `trade.<apex>` — so the base is the empty string and requests stay
- * relative. Under `pnpm dev` the page is on Vite's port while the service is on the registry's dev
- * port, so the base is absolute and the request goes cross-origin.
+ * ── IT IS `@cloudsforge/ui`'s NOW, AND THIS REPOSITORY HELD ONE OF SIXTEEN COPIES ───────────────
  *
- * The difference is derived by COMPARING ORIGINS rather than by a `DEV` flag, because a flag is a
- * build-time constant and this repository has none: an image built for production and opened on
- * localhost would then point at a host that is not there.
+ * The body used to live here, and in fifteen other frontends, eleven of them byte-identical. It
+ * is a derivation from the registry, and the estate has been bitten three times by a second copy
+ * of a registry derivation.
+ *
+ * The behaviour is unchanged in the case this surface was in and changes in exactly one way for
+ * the case it has moved to. Same origin used to answer `''`, so requests stayed RELATIVE —
+ * correct while `micro-trade` and this bundle shared `trade.<apex>`, and wrong now the bundle is
+ * `<apex>/trade`: a relative `/v1/strategies` then resolves at the APEX ROOT, which is
+ * micro-site's, and micro-site answers its SPA shell. 200, HTML body where JSON was expected,
+ * every panel on the page in a failure state with a perfectly healthy network tab.
+ *
+ * `apiBaseFor` answers the surface's own MOUNT instead. See its comment in `@cloudsforge/ui` for
+ * the argument and the tests, including a property test over the whole registry.
+ *
+ * Re-exported rather than deleted because the tests and `lib/api.ts` both name it, and a rename
+ * across those for no behavioural reason is churn a reviewer has to read past.
  */
-export function resolveApiBase(pageOrigin: string, hosts: CloudsForgeHosts, key: SurfaceKey): string {
-  const own = hosts[key]
-  // With no page origin there is nothing for a relative URL to resolve against, so the absolute
-  // form is the only correct answer.
-  if (!pageOrigin) return own
-  // A surface may carry a basePath (the wallet is a path inside Hub), so compare ORIGINS rather
-  // than whole URLs — otherwise every such surface would look cross-origin to itself.
-  return new URL(own).origin === pageOrigin ? '' : own
-}
+export const resolveApiBase = apiBaseFor
 
 /** The same four names `cloudsforgeHosts()` treats as development. Kept in step by test. */
 export function isLocal(hostname: string): boolean {

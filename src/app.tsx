@@ -26,6 +26,7 @@ import { ScrollToTop } from './components/scroll-to-top.tsx'
 import { AppShell } from './components/shell.tsx'
 import { AuthProvider, ProtectedRoute } from './lib/auth.tsx'
 import { placementIsKnown } from './lib/hosts.ts'
+import { BASE } from './lib/routes.ts'
 import { StrategiesPage } from './pages/strategies.tsx'
 import { MarketsPage } from './pages/markets.tsx'
 import { MarketPage } from './pages/market.tsx'
@@ -44,7 +45,7 @@ export function App() {
   const unregistered = !placementIsKnown()
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={BASE}>
       <ScrollToTop />
       <AuthProvider>
         <Routes>

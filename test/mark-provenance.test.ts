@@ -40,7 +40,9 @@ import { BotPage } from '../src/pages/bot.tsx'
 import { BotsPage } from '../src/pages/bots.tsx'
 import type { Bot, EquityPriceSource } from '../src/lib/trade.ts'
 
-const ORIGIN = 'https://trade.cloudsforge.online'
+// The page ROOT, which carries the mount since wave 3b moved this surface to `<apex>/trade`.
+// Every use below is `${ORIGIN}/<router path>`, so this is the one line that has to know.
+const ORIGIN = 'https://cloudsforge.online/trade'
 
 /** The same equity, to the cent, in every scenario. The provenance is the only variable. */
 const EQUITY = '104250'

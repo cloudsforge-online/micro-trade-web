@@ -68,7 +68,9 @@ import { OrderPage } from '../src/pages/order.tsx'
 import { OrdersPage } from '../src/pages/orders.tsx'
 import { StrategiesPage } from '../src/pages/strategies.tsx'
 
-const ORIGIN = 'https://trade.cloudsforge.online'
+// The page ROOT, which carries the mount since wave 3b moved this surface to `<apex>/trade`.
+// Every use below is `${ORIGIN}/<router path>`, so this is the one line that has to know.
+const ORIGIN = 'https://cloudsforge.online/trade'
 const SYMBOL = 'BTC-USD'
 const at = (p: string) => fileURLToPath(new URL(`../${p}`, import.meta.url))
 
@@ -1647,7 +1649,7 @@ describe('BJ-TRADE-404 — an unowned address answers 404', () => {
     .join('\n')
 
   it('BJ-TRADE-404 T2: nginx serves the shell through error_page 404, never try_files', () => {
-    assert.match(directives, /error_page\s+404\s+\/index\.html/)
+    assert.match(directives, /error_page\s+404\s+\/trade\/index\.html/)
     assert.doesNotMatch(directives, /try_files\s+\$uri\s+(\$uri\/\s+)?\/index\.html/)
   })
 

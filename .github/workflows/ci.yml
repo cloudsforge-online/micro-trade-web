@@ -490,10 +490,15 @@ jobs:
           set -uo pipefail
           directives=$(grep -v '^[[:space:]]*#' nginx.conf)
           if printf '%s\n' "$directives" | grep -nE 'try_files[[:space:]]+\$uri[[:space:]]+(\$uri/[[:space:]]+)?/index\.html'; then
-            echo "::error::unknown paths must 404; serve the shell through error_page 404 /index.html"
+            echo "::error::unknown paths must 404; serve the shell through error_page 404 /trade/index.html"
             exit 1
           fi
-          grep -q 'error_page 404 /index.html' <<<"$directives"
+          # THE MOUNT IS PART OF THE PATH NOW. The bundle is served from
+          # `/usr/share/nginx/html/trade`, so the internal redirect that serves the shell is
+          # `/trade/index.html`; `/index.html` is not a file this image has. Wave 3b of
+          # `deploy/docs/apex-consolidation.md` — micro-journal-web, micro-exchange-web and
+          # micro-market-web all made this same edit to this same gate in waves 1, 2 and 3a.
+          grep -q 'error_page 404 /trade/index.html' <<<"$directives"
           echo "ok: unknown paths answer 404"
 
       - name: The auth callback is redeemed before the app renders
@@ -723,28 +728,61 @@ jobs:
         run: |
           set -uo pipefail
           docker run -d --name ci-trade-web -p 127.0.0.1:8080:8080 trade-web:ci
+
+          # ── EVERY PROBE BELOW CARRIES THE MOUNT, AND ONE VARIABLE IS WHY ─────────────────────
+          #
+          # Forge Trade is `<apex>/trade` since 2026-08-19 (micro-deploy
+          # `docs/apex-consolidation.md`, wave 3b) and this step was written when it was a
+          # hostname. `BASE` is prepended to each probe rather than written into it, so the
+          # addresses read as ROUTER paths — the way `src/lib/routes.ts` holds them — and there is
+          # one line to change if the mount moves.
+          BASE=/trade
+
+          # AND THE ORIGIN ROOT IS NOT THIS IMAGE'S ANY MORE. `/` belongs to micro-site; this
+          # container answering it would be invisible behind the gateway, which routes only
+          # `/trade` here — and very visible under `docker run`, which is where a wrong `base:` in
+          # vite.config.ts or a wrong COPY destination in the Dockerfile shows up first. The 404 is
+          # the assertion that the bundle actually MOVED rather than being served from both places.
+          #
+          # Probed after the readiness loop below, so a slow container reports "not ready" rather
+          # than "serves the root".
           for _ in $(seq 1 30); do
-            code=$(curl -s -m 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/ || true)
+            code=$(curl -s -m 5 -o /dev/null -w '%{http_code}' "http://127.0.0.1:8080$BASE" || true)
             [ "$code" = "200" ] && break
             sleep 1
           done
           [ "${code:-}" = "200" ] || { echo "::error::the image returned ${code:-no answer} for /"; docker logs --tail 60 ci-trade-web; exit 1; }
 
+          root=$(curl -s -m 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/ || true)
+          [ "$root" = "404" ] || { echo "::error::the origin root returned $root — this image must not serve /, which is micro-site's"; exit 1; }
+
+          # Same for robots.txt, and it is not pedantry: a crawler reads robots.txt at the ORIGIN
+          # ROOT only, so a copy served here would be a file nothing fetches while looking like the
+          # rules are covered. micro-site owns them now and asserts them.
+          robots=$(curl -s -m 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/robots.txt || true)
+          [ "$robots" = "404" ] || { echo "::error::/robots.txt returned $robots — this image deleted its copy; micro-site owns the origin root"; exit 1; }
+
+          # THE TRAILING SLASH IS A SECOND FRONT DOOR that did not exist while this was a hostname:
+          # `/` has no slash-suffixed variant to get wrong, `/trade` does, and `location = /trade/`
+          # in nginx.conf exists for it.
+          slash=$(curl -s -m 5 -o /dev/null -w '%{http_code}' "http://127.0.0.1:8080$BASE/" || true)
+          [ "$slash" = "200" ] || { echo "::error::$BASE/ returned $slash — the trailing-slash front door is not served"; exit 1; }
+
           fail=0
 
           # A route this app OWNS must survive a hard refresh. The path is DEEP_LINK_PATH in
           # src/lib/routes.ts, and test/routes.test.ts checks this file against it.
-          deep=$(curl -s -m 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/backtests/5c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f || true)
+          deep=$(curl -s -m 5 -o /dev/null -w '%{http_code}' "http://127.0.0.1:8080$BASE/backtests/5c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f" || true)
           [ "$deep" = "200" ] || { echo "::error::an owned route returned $deep — it must be served the shell"; fail=1; }
 
           # The bot detail page, which is the address a customer reloads while a live bot runs.
-          bot=$(curl -s -m 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/bots/5c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f || true)
+          bot=$(curl -s -m 5 -o /dev/null -w '%{http_code}' "http://127.0.0.1:8080$BASE/bots/5c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f" || true)
           [ "$bot" = "200" ] || { echo "::error::a bot page returned $bot"; fail=1; }
 
           # A route it does NOT own must answer 404 while still serving the shell, so the reader
           # gets a real page and the status line tells the truth. This is the assertion the org's
           # reusable image job cannot make, because it requires a 200 for any deep link.
-          unknown=$(curl -s -m 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/nope/not/a/route || true)
+          unknown=$(curl -s -m 5 -o /dev/null -w '%{http_code}' "http://127.0.0.1:8080$BASE/nope/not/a/route" || true)
           [ "$unknown" = "404" ] || { echo "::error::an unknown address returned $unknown; it must be 404"; fail=1; }
           #
           # NOTHING BELOW PIPES `curl` INTO ANYTHING, AND THAT IS THE POINT. `curl … | grep -q` under
@@ -757,7 +795,7 @@ jobs:
           # `<div id="root">` now ends at byte 7,743, so 4,420 bytes are left for curl to lose on.
           # Capture first, then match in the shell — `case` is exact rather than a regex, and a
           # here-string is byte-identical input with the same exit status and no pipe to break.
-          shell_404=$(curl -s -m 5 http://127.0.0.1:8080/nope/not/a/route || true)
+          shell_404=$(curl -s -m 5 "http://127.0.0.1:8080$BASE/nope/not/a/route" || true)
           case "$shell_404" in
             *'<div id="root">'*) ;;
             *) echo "::error::the 404 did not serve the app shell"; fail=1 ;;
@@ -773,10 +811,10 @@ jobs:
             esac
           }
 
-          index_html=$(curl -s -m 5 http://127.0.0.1:8080/ || true)
+          index_html=$(curl -s -m 5 "http://127.0.0.1:8080$BASE" || true)
           assets=$(grep -oE '/assets/[^"]+\.js' <<<"$index_html" || true)
           asset=${assets%%$'\n'*}
-          for target in "http://127.0.0.1:8080/" "http://127.0.0.1:8080/bots" "http://127.0.0.1:8080$asset"; do
+          for target in "http://127.0.0.1:8080$BASE" "http://127.0.0.1:8080$BASE/bots" "http://127.0.0.1:8080$asset"; do
             [ -n "$asset" ] || [ "$target" != "http://127.0.0.1:8080" ] || continue
             check "$target" X-Content-Type-Options "nosniff" "$target"
             # SAMEORIGIN, not DENY: this is a public product surface with legitimate embeds inside
@@ -784,12 +822,12 @@ jobs:
             check "$target" X-Frame-Options "SAMEORIGIN" "$target"
             check "$target" Referrer-Policy "strict-origin" "$target"
           done
-          check "http://127.0.0.1:8080/" Cache-Control "no-store" "the shell"
-          check "http://127.0.0.1:8080/bots" Cache-Control "no-store" "an enumerated route"
+          check "http://127.0.0.1:8080$BASE" Cache-Control "no-store" "the shell"
+          check "http://127.0.0.1:8080$BASE/bots" Cache-Control "no-store" "an enumerated route"
           [ -n "$asset" ] && check "http://127.0.0.1:8080$asset" Cache-Control "immutable" "a hashed asset"
 
           # This surface must NOT be kept out of an index: the strategy catalogue is a public page.
-          root_headers=$(curl -sI -m 5 http://127.0.0.1:8080/ || true)
+          root_headers=$(curl -sI -m 5 "http://127.0.0.1:8080$BASE" || true)
           robots=$(tr -d '\r' <<<"$root_headers" | grep -ci '^X-Robots-Tag:' || true)
           [ "${robots:-0}" = "0" ] || { echo "::error::this public surface sends X-Robots-Tag"; fail=1; }
 
@@ -798,7 +836,7 @@ jobs:
           # shipped an image with no icon in it while their own brand test passed. Fixed upstream at
           # micro-web-template/Dockerfile:39; this probe is what would have caught it.
           for asset in favicon-32x32.png favicon-192x192.png og-1200x630.png; do
-            code=$(curl -s -m 5 -o /dev/null -w '%{http_code}' "http://127.0.0.1:8080/$asset" || true)
+            code=$(curl -s -m 5 -o /dev/null -w '%{http_code}' "http://127.0.0.1:8080$BASE/$asset" || true)
             [ "$code" = "200" ] || { echo "::error::/$asset returned $code from the image"; fail=1; }
           done
 

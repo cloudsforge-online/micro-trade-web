@@ -37,7 +37,7 @@ const read = (file: string): string =>
 
 /** The production host table, as `cloudsforgeHosts()` derives it from an apex hostname. */
 function production(): CloudsForgeHosts {
-  installWindow('https://trade.cloudsforge.online/')
+  installWindow('https://cloudsforge.online/trade/')
   const hosts = cloudsforgeHosts()
   removeWindow()
   return hosts
@@ -48,12 +48,19 @@ describe('the surface this app is', () => {
     assert.equal(PRODUCT, 'trade')
   })
 
-  it('is registered as a product, in the switcher, with its own subdomain', () => {
+  it('is registered as a product, in the switcher, at a path on the apex', () => {
     const surface = SURFACES.find((s) => s.key === PRODUCT)
     assert.ok(surface, 'trade is not in the surface registry')
     assert.equal(surface.kind, 'product')
     assert.equal(surface.inSwitcher, true)
-    assert.equal(surface.subdomain, 'trade')
+    // ── IT IS A PATH SINCE WAVE 3b, AND THE SWITCHER STILL FINDS IT ─────────────────────────────
+    //
+    // `subdomain: 'trade'` was the assertion, and what it was FOR is that the switcher can
+    // navigate here. A home is an ADDRESS, and either half of (subdomain, basePath) supplies one —
+    // so both are asserted rather than the empty string alone, which would pass for a surface
+    // that had lost its home entirely.
+    assert.equal(surface.subdomain, '')
+    assert.equal(surface.basePath, '/trade')
     assert.equal(surface.name, 'Forge Trade')
   })
 
@@ -67,9 +74,20 @@ describe('the surface this app is', () => {
 describe('the API base is an origin comparison, never a flag', () => {
   const hosts = production()
 
-  it('is relative when the page and the API share an origin', () => {
-    // Production: nginx serves this bundle and trade serves /v1 behind trade.<apex>.
-    assert.equal(resolveApiBase('https://trade.cloudsforge.online', hosts, PRODUCT), '')
+  it('is THE MOUNT when the page and the API share an origin, because `` would leave it', () => {
+    // ── THIS EXPECTED `''`, AND THE MOVE IS WHAT MADE THAT WRONG ─────────────────────────────
+    //
+    // While this bundle was `trade.<apex>` and `micro-trade` served `/v1` behind the same
+    // hostname, `''` was right: every request stayed relative and landed on the service.
+    //
+    // The surface is `<apex>/trade` now. A relative `/v1/strategies` from a page at
+    // `/trade/anything` resolves at the ORIGIN ROOT, which is micro-site's — and micro-site
+    // answers its SPA shell for an unknown path. 200, an HTML body where JSON was expected, every
+    // panel in a failure state and a completely healthy network tab.
+    //
+    // The mount is the answer, and the gateway's stripPrefix takes it back off before
+    // `micro-trade` sees it, so the SERVICE is unchanged (decision 4).
+    assert.equal(resolveApiBase('https://cloudsforge.online', hosts, PRODUCT), '/trade')
   })
 
   it('is absolute when they do not', () => {
@@ -81,13 +99,19 @@ describe('the API base is an origin comparison, never a flag', () => {
   })
 
   it('resolves from the window on every call, so one image serves every environment', () => {
-    installWindow('https://trade.cloudsforge.online/bots')
-    assert.equal(apiBase(), '')
+    installWindow('https://cloudsforge.online/trade/bots')
+    assert.equal(apiBase(), '/trade')
     removeWindow()
 
-    installWindow('http://localhost:5186/bots')
+    installWindow('http://localhost:5186/trade/bots')
     // Under `pnpm dev` the page is on Vite's port and the service is on the registry's, so the
     // request goes cross-origin and absolute.
+    //
+    // AND IT CARRIES NO MOUNT. There is no gateway under `pnpm dev`, so nothing would strip a
+    // `/trade` prefix before `micro-trade` saw it — `apiBaseFor` drops the mount for a LOCAL
+    // target for exactly that reason. Asserted rather than assumed, because getting it wrong
+    // 404s every request on every moved surface for anyone running the estate locally, and does
+    // so only in development where no CI job would see it.
     assert.notEqual(apiBase(), '')
     assert.match(apiBase(), /^http:\/\/localhost:\d+$/)
   })
@@ -142,7 +166,7 @@ describe('the placement warning', () => {
 
   it('accepts this surface’s own origin', () => {
     assert.equal(
-      isRegisteredPlacement('https://trade.cloudsforge.online', 'trade.cloudsforge.online', hosts),
+      isRegisteredPlacement('https://cloudsforge.online', 'trade.cloudsforge.online', hosts),
       true,
     )
   })

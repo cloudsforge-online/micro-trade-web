@@ -22,7 +22,7 @@ import { apiBase } from '../src/lib/hosts.ts'
 import { setViewedNetwork, viewedNetwork } from '../src/lib/viewed.ts'
 
 /** A real address on this surface, on the mainnet estate. */
-const PAGE = 'https://trade.cloudsforge.online/'
+const PAGE = 'https://cloudsforge.online/trade/'
 /** A development address: no sibling estate exists, so nothing here can point anywhere. */
 const DEV = 'http://localhost:5173/'
 
@@ -42,7 +42,10 @@ describe('the in-place network view', () => {
   it('starts on the network the hostname names, and says so', () => {
     at(PAGE, () => {
       assert.equal(viewedNetwork(), 'mainnet')
-      assert.equal(apiBase(), '')
+      // THE MOUNT, not `''`. The page is `<apex>/trade` since wave 3b, so a relative request would
+      // resolve at the origin root — micro-site's — rather than at this surface's API. Viewing the
+      // serving estate is the case where the two used to be indistinguishable and no longer are.
+      assert.equal(apiBase(), '/trade')
     })
   })
 
@@ -53,7 +56,18 @@ describe('the in-place network view', () => {
       // `-testnet` on the API host, not a different path and not a different product. The web
       // hostname is retired and 302s to its mainnet sibling; `/v1` on it is exempt and still
       // answers from the testnet service, which is what makes this readable at all.
-      assert.equal(apiBase(), 'https://trade-testnet.cloudsforge.online')
+      // THE TESTNET ESTATE'S APEX, WITH THE MOUNT CARRIED THROUGH. `viewedHosts()` re-points the
+      // ORIGIN and leaves the path alone, and the testnet gateway strips `/trade` exactly as the
+      // mainnet one does. Dropping the mount here would be the dev-only rule applied where a
+      // gateway does exist.
+      //
+      // THIS ONLY WORKS BECAUSE THE API ROUTER IS OUTSIDE THE `CF_WEB_RETIRED` GATE, and that was
+      // a live defect for six hours on 2026-08-19: with it inside, `testnet.<apex>/trade/v1/…`
+      // fell through to the retirement redirect and answered 302 TO MAINNET — which a
+      // cross-origin fetch follows, so this switch showed mainnet data with Testnet selected.
+      // Fixed in micro-deploy#174 and asserted there by `check-api-remount.py`. Measured after
+      // the fix: 200 `application/json`, no Location.
+      assert.equal(apiBase(), 'https://testnet.cloudsforge.online/trade')
     })
   })
 
@@ -62,7 +76,7 @@ describe('the in-place network view', () => {
       setViewedNetwork('testnet')
       setViewedNetwork('mainnet')
       assert.equal(viewedNetwork(), 'mainnet')
-      assert.equal(apiBase(), '')
+      assert.equal(apiBase(), '/trade')
     })
   })
 
