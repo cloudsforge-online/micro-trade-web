@@ -232,23 +232,26 @@ describe('auth callback', () => {
       : json(404, { error: { code: 'not_found', message: 'identity serves no such route' } })
 
   it('strips the code from the address bar BEFORE the redemption is sent', async () => {
-    browser = installWindow('https://trade.cloudsforge.online/reports?tab=1#cf_code=abc123&view=grid')
+    browser = installWindow('https://cloudsforge.online/trade/reports?tab=1#cf_code=abc123&view=grid')
     stub = installFetch(identityRedemption, browser.trace)
 
     assert.equal(await bootstrapSession(), true)
 
     // The ORDER is the assertion. Reverse the two side effects in @cloudsforge/ui and this fails.
-    assert.equal(browser.trace[0], 'replaceState:/reports?tab=1#view=grid')
+    assert.equal(browser.trace[0], 'replaceState:/trade/reports?tab=1#view=grid')
     assert.ok(browser.trace[1]?.startsWith('fetch:'))
 
     // The rest of the fragment survives: an app may keep its own route there.
-    assert.deepEqual(browser.replaced, ['/reports?tab=1#view=grid'])
+    // THE MOUNT IS PART OF THE ADDRESS THAT GETS REWRITTEN. `replaceState` is handed the page's
+    // own path, and the page is at `/trade/reports` now — rewriting to `/reports` would move the
+    // reader to micro-site's root while stripping the code, which is a sign-in that lands nowhere.
+    assert.deepEqual(browser.replaced, ['/trade/reports?tab=1#view=grid'])
     assert.equal(browser.window.location.hash, '#view=grid')
     assert.equal(getAccessToken(), 'a-new')
   })
 
   it('redeems at the route identity serves, on identity’s host', async () => {
-    browser = installWindow('https://trade.cloudsforge.online/#cf_code=abc123')
+    browser = installWindow('https://cloudsforge.online/trade/#cf_code=abc123')
     stub = installFetch(identityRedemption, browser.trace)
 
     assert.equal(await bootstrapSession(), true, 'the redemption was refused')
@@ -262,16 +265,16 @@ describe('auth callback', () => {
   it('still strips the code when the redemption fails', async () => {
     // An "after the exchange resolves" implementation never strips it at all on this path, and
     // the code stays in the address bar for as long as the tab is open.
-    browser = installWindow('https://trade.cloudsforge.online/#cf_code=dead')
+    browser = installWindow('https://cloudsforge.online/trade/#cf_code=dead')
     stub = installFetch(() => json(400, { error: 'code expired' }), browser.trace)
 
     assert.equal(await bootstrapSession(), false)
-    assert.deepEqual(browser.replaced, ['/'])
+    assert.deepEqual(browser.replaced, ['/trade/'])
     assert.equal(getAccessToken(), null)
   })
 
   it('does nothing to a URL that carries no code', async () => {
-    browser = installWindow('https://trade.cloudsforge.online/overview#section-2')
+    browser = installWindow('https://cloudsforge.online/trade/overview#section-2')
     let calls = 0
     stub = installFetch(() => {
       calls += 1

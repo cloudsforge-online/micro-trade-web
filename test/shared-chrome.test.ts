@@ -157,7 +157,10 @@ describe('the mining control in the bar', () => {
   ]
 
   const atAddress = async (path: string, routes: Routes, body: (s: Screen) => Promise<void>) =>
-    withScreen(h(App), { url: `https://trade.cloudsforge.online${path}`, routes, allowEmpty: true }, async (s) => {
+    // `${path}` is a ROUTER path — `/`, `/bots`, `/nothing-here` — and the page it names is under
+    // the mount since wave 3b. Composing without it puts the browser on micro-site's root, where
+    // this app's router matches nothing and every bar assertion below fails for the wrong reason.
+    withScreen(h(App), { url: `https://cloudsforge.online/trade${path}`, routes, allowEmpty: true }, async (s) => {
       await s.settle(20)
       await body(s)
     })
@@ -288,7 +291,7 @@ describe('the strip of sections, as it is actually rendered', () => {
   const CATALOGUE: Routes = { 'GET /v1/strategies': { body: { strategies: [fx.strategy()] } } }
 
   const atIndex = async (body: (s: Screen) => Promise<void>) =>
-    withScreen(h(App), { url: 'https://trade.cloudsforge.online/', routes: CATALOGUE }, async (s) => {
+    withScreen(h(App), { url: 'https://cloudsforge.online/trade/', routes: CATALOGUE }, async (s) => {
       await s.settle(20)
       await body(s)
     })
