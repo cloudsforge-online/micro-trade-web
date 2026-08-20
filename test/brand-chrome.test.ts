@@ -27,6 +27,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { BASE } from '../src/lib/routes.ts'
 
 const at = (p: string) => fileURLToPath(new URL(`../${p}`, import.meta.url))
 const HTML = readFileSync(at('index.html'), 'utf8')
@@ -85,7 +86,13 @@ test('the og:image is a RELATIVE path, so the card resolves against whichever or
   const m = /property="og:image"\s+content="([^"]+)"/.exec(HTML)
   assert.ok(m, 'no og:image content')
   assert.ok(m[1]?.startsWith('/'), `og:image is ${m[1]}, which is not a relative path`)
-  assert.ok(existsSync(at(`public${m[1]}`)), `og:image points at ${m[1]}, which is not in public/`)
+  // ── THE MOUNT COMES OFF BEFORE THE DISK ──────────────────────────────────────────────────
+  // index.html names the PUBLIC address, `<BASE>/og-1200x630.png`, and it has to: vite does
+  // not rewrite `content` against `base`, so a root-relative one would survive the build and
+  // resolve to MICRO-SITE's card on the apex. The file itself is at `public/og-1200x630.png`
+  // — that folder is made by the Dockerfile's COPY, not by this tree.
+  const onDisk = (m[1] as string).startsWith(`${BASE}/`) ? (m[1] as string).slice(BASE.length) : (m[1] as string)
+  assert.ok(existsSync(at(`public${onDisk}`)), `og:image points at ${m[1] as string}, not in public/ (looked for public${onDisk})`)
 })
 
 test('the og metadata is declared ONCE', () => {
