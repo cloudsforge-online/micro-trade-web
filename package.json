@@ -1,6 +1,6 @@
 {
   "name": "@cloudsforge/trade-web",
-  "version": "2026.8.96",
+  "version": "2026.8.97",
   "packageManager": "pnpm@11.9.0",
   "private": true,
   "description": "Forge Trade: the strategy catalogue, backtesting, paper and live bots, and the performance report. Fees and slippage are charged.",
