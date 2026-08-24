@@ -558,8 +558,18 @@ describe('every route this bundle names is really registered by the service', ()
     assert.match(helper, /await authenticate\(ctx, deps\)/, 'ownedBot no longer authenticates')
     assert.match(
       helper,
-      /getOwnedBot\(deps\.sql, uuidParam\(ctx, 'id'\), userId\)/,
+      /getOwnedBot\(ctx\.sql, uuidParam\(ctx, 'id'\), userId\)/,
       'ownedBot no longer scopes the lookup to the caller',
+    )
+    // `ctx.sql`, not `deps.sql`, since the network consolidation (micro-deploy
+    // `docs/network-consolidation.md`). The handle is resolved once per request from the
+    // `CF-Network` header; `deps.sql` is now a selector with no query methods, so reading it here
+    // would not compile. The scoping this test exists to protect is unchanged — the bot is still
+    // looked up by the caller's own id — but it is now scoped to the caller's ESTATE as well.
+    assert.doesNotMatch(
+      helper,
+      /getOwnedBot\(deps\.sql/,
+      'ownedBot must take the request handle, not the process-wide selector',
     )
   })
 
